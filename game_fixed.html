@@ -1,0 +1,4296 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2D Minecraft Survival</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #edf3e9;
+      --muted: #aeb8aa;
+      --panel: rgba(13, 17, 19, 0.86);
+      --panel-2: rgba(29, 35, 36, 0.9);
+      --line: rgba(255, 255, 255, 0.16);
+      --accent: #f0c25e;
+      --good: #6cc05a;
+      --bad: #d94f47;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #0f1518;
+      color: var(--ink);
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+
+    #game {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      image-rendering: pixelated;
+      cursor: crosshair;
+    }
+
+    .hud {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .topbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: grid;
+      gap: 8px;
+      width: min(390px, calc(100vw - 24px));
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(10px);
+    }
+
+    .meters {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .meter span,
+    .small-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .bar {
+      height: 9px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    .bar i {
+      display: block;
+      width: 100%;
+      height: 100%;
+      transform-origin: left center;
+      background: var(--good);
+    }
+
+    #healthBar {
+      background: var(--bad);
+    }
+
+    #hungerBar {
+      background: #d49a3a;
+    }
+
+    #armorBar {
+      background: #b8c4c8;
+    }
+
+    #heatBar {
+      background: linear-gradient(90deg, #61b7e8, #f0c25e, #e65b46);
+    }
+
+    #xpBar {
+      background: linear-gradient(90deg, #69cf68, #a7ef55);
+    }
+
+    .status {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .hint {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: min(410px, calc(100vw - 24px));
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(13, 17, 19, 0.68);
+      color: #d6dfd1;
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.45;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+      backdrop-filter: blur(10px);
+    }
+
+    .hotbar {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      display: grid;
+      grid-template-columns: repeat(9, clamp(42px, 7vw, 56px));
+      gap: 6px;
+      max-width: calc(100vw - 20px);
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(9, 11, 12, 0.9);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+      transform: translateX(-50%);
+      pointer-events: auto;
+      backdrop-filter: blur(10px);
+    }
+
+    .slot {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 100%;
+      aspect-ratio: 1;
+      border: 2px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.23));
+      color: #fff;
+      cursor: pointer;
+      pointer-events: auto;
+      font: inherit;
+      padding: 0;
+    }
+
+    .slot:hover {
+      border-color: rgba(255, 255, 255, 0.34);
+    }
+
+    .slot.selected {
+      border-color: #ffffff;
+      box-shadow: inset 0 0 0 2px rgba(240, 194, 94, 0.8), 0 0 22px rgba(240, 194, 94, 0.22);
+    }
+
+    .slot.empty {
+      color: rgba(255, 255, 255, 0.22);
+    }
+
+    .slot.armor-slot {
+      width: 64px;
+    }
+
+    .slot-key {
+      position: absolute;
+      top: 3px;
+      left: 5px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 11px;
+      font-weight: 850;
+      text-shadow: 0 1px 1px #000;
+    }
+
+    .slot-count {
+      position: absolute;
+      right: 5px;
+      bottom: 3px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      text-shadow: 0 1px 2px #000;
+    }
+
+    .slot-icon {
+      display: grid;
+      place-items: center;
+      width: 62%;
+      aspect-ratio: 1;
+      border: 2px solid rgba(0, 0, 0, 0.22);
+      border-radius: 3px;
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 14px;
+      font-weight: 900;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+      image-rendering: pixelated;
+    }
+
+    .main-menu {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      display: grid;
+      place-items: center;
+      background:
+        linear-gradient(rgba(9, 13, 16, 0.5), rgba(9, 13, 16, 0.78)),
+        radial-gradient(circle at 50% 28%, rgba(118, 69, 160, 0.28), transparent 32%),
+        #11181b;
+      pointer-events: auto;
+    }
+
+    .main-menu.hidden {
+      display: none;
+    }
+
+    .menu-panel {
+      width: min(460px, calc(100vw - 28px));
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(14, 19, 21, 0.92);
+      box-shadow: 0 22px 70px rgba(0, 0, 0, 0.48);
+    }
+
+    .menu-title {
+      margin: 0 0 12px;
+      font-size: clamp(28px, 6vw, 46px);
+      line-height: 1;
+      color: #eef7e8;
+      text-shadow: 0 4px 0 rgba(0, 0, 0, 0.45);
+    }
+
+    .menu-actions {
+      display: grid;
+      gap: 8px;
+    }
+
+    .menu-actions.two-col {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .menu-actions button,
+    .settings-row button {
+      height: 42px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: linear-gradient(180deg, #30433e, #1d2928);
+      color: #f3f8ef;
+      font: inherit;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .menu-actions button:hover,
+    .settings-row button:hover {
+      border-color: rgba(255,255,255,0.42);
+      background: linear-gradient(180deg, #3e5a4e, #263635);
+    }
+
+    .settings-box {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .settings-box.open {
+      display: grid;
+      gap: 10px;
+    }
+
+    .worlds-box,
+    .lan-box {
+      display: none;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .worlds-box.open,
+    .lan-box.open {
+      display: grid;
+    }
+
+    .menu-subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+
+    .world-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .world-row strong,
+    .world-row small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .world-row small {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .world-row button {
+      width: 82px;
+      min-height: 34px;
+    }
+
+    .mode-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-row button.active {
+      border-color: rgba(240, 194, 94, 0.88);
+      box-shadow: inset 0 0 0 1px rgba(240, 194, 94, 0.52);
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .settings-row button {
+      width: 94px;
+      height: 34px;
+    }
+
+    .slot-icon::before,
+    .slot-icon::after,
+    .slot-pixel {
+      content: "";
+      position: absolute;
+      display: block;
+    }
+
+    .slot-icon {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slot-icon.item-stick::before {
+      left: 43%;
+      top: 8%;
+      width: 14%;
+      height: 84%;
+      background: #6f3c1b;
+      transform: rotate(34deg);
+      box-shadow: 4px 0 #b8793a;
+    }
+
+    .slot-icon.item-1::before,
+    .slot-icon.item-21::before {
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 24%;
+      background: #72ca5b;
+      box-shadow: 0 8px #8c5b38, 0 20px #5b3824;
+    }
+
+    .slot-icon.item-21::before {
+      background: #8a58c7;
+      box-shadow: 0 8px #5d3c86, 0 20px #33204f;
+    }
+
+    .slot-icon.item-2::before,
+    .slot-icon.item-7::before {
+      inset: 16% 14%;
+      background:
+        radial-gradient(circle at 25% 25%, rgba(255,255,255,0.18) 0 8%, transparent 9%),
+        radial-gradient(circle at 70% 62%, rgba(0,0,0,0.18) 0 9%, transparent 10%);
+    }
+
+    .slot-icon.item-3::before,
+    .slot-icon.item-16::before,
+    .slot-icon.item-22::before {
+      inset: 12%;
+      background:
+        linear-gradient(90deg, transparent 47%, rgba(0,0,0,0.24) 48% 52%, transparent 53%),
+        linear-gradient(0deg, transparent 45%, rgba(0,0,0,0.24) 46% 52%, transparent 53%);
+    }
+
+    .slot-icon.item-4::before,
+    .slot-icon.item-23::before {
+      left: 28%;
+      top: 4%;
+      width: 16%;
+      height: 92%;
+      background: rgba(0,0,0,0.35);
+      box-shadow: 14px 0 rgba(0,0,0,0.26);
+    }
+
+    .slot-icon.item-5::before,
+    .slot-icon.item-24::before {
+      inset: 16% 10%;
+      background:
+        radial-gradient(circle at 28% 35%, rgba(255,255,255,0.18) 0 12%, transparent 13%),
+        radial-gradient(circle at 70% 65%, rgba(0,0,0,0.18) 0 14%, transparent 15%);
+      border-radius: 34%;
+    }
+
+    .slot-icon.item-13::before {
+      left: 0;
+      top: 28%;
+      width: 100%;
+      height: 8%;
+      background: rgba(0,0,0,0.28);
+      box-shadow: 0 14px rgba(0,0,0,0.24);
+    }
+
+    .slot-icon.item-8::before,
+    .slot-icon.item-25::before {
+      left: 10%;
+      top: 28%;
+      width: 80%;
+      height: 10%;
+      background: rgba(255,255,255,0.26);
+      box-shadow: 0 14px rgba(255,255,255,0.2);
+    }
+
+    .slot-icon.item-9::before,
+    .slot-icon.item-10::before,
+    .slot-icon.item-11::before,
+    .slot-icon.item-17::before,
+    .slot-icon.item-18::before,
+    .slot-icon.item-19::before,
+    .slot-icon.item-20::before {
+      inset: 18% 16%;
+      border: 3px solid rgba(0,0,0,0.34);
+      background: rgba(255,255,255,0.16);
+    }
+
+    .slot-icon.item-20::before {
+      border-radius: 8px 8px 2px 2px;
+      background: #9a6531;
+    }
+
+    .slot-icon.item-15::before {
+      inset: 12%;
+      border: 3px solid rgba(255,255,255,0.62);
+      background: rgba(255,255,255,0.12);
+    }
+
+    .slot-icon.item-wood_sword::before,
+    .slot-icon.item-stone_sword::before,
+    .slot-icon.item-iron_sword::before,
+    .slot-icon.item-diamond_sword::before {
+      left: 44%;
+      top: 5%;
+      width: 14%;
+      height: 70%;
+      background: rgba(255,255,255,0.72);
+      transform: rotate(36deg);
+    }
+
+    .slot-icon.item-wood_sword::after,
+    .slot-icon.item-stone_sword::after,
+    .slot-icon.item-iron_sword::after,
+    .slot-icon.item-diamond_sword::after {
+      left: 31%;
+      top: 62%;
+      width: 44%;
+      height: 12%;
+      background: #5b351d;
+      transform: rotate(36deg);
+    }
+
+    .slot-icon.item-wood_pickaxe::before,
+    .slot-icon.item-stone_pickaxe::before,
+    .slot-icon.item-iron_pickaxe::before,
+    .slot-icon.item-diamond_pickaxe::before,
+    .slot-icon.item-wood_axe::before,
+    .slot-icon.item-stone_axe::before,
+    .slot-icon.item-iron_axe::before,
+    .slot-icon.item-diamond_axe::before {
+      left: 24%;
+      top: 21%;
+      width: 56%;
+      height: 14%;
+      background: rgba(255,255,255,0.68);
+      border-radius: 3px 3px 0 0;
+    }
+
+    .slot-icon.item-wood_pickaxe::after,
+    .slot-icon.item-stone_pickaxe::after,
+    .slot-icon.item-iron_pickaxe::after,
+    .slot-icon.item-diamond_pickaxe::after,
+    .slot-icon.item-wood_axe::after,
+    .slot-icon.item-stone_axe::after,
+    .slot-icon.item-iron_axe::after,
+    .slot-icon.item-diamond_axe::after {
+      left: 47%;
+      top: 31%;
+      width: 12%;
+      height: 56%;
+      background: #6b3d20;
+      transform: rotate(18deg);
+    }
+
+    .slot-icon.item-iron_ingot::before {
+      left: 18%;
+      top: 39%;
+      width: 64%;
+      height: 25%;
+      background: #f2eee0;
+      box-shadow: inset -4px -4px #9b978b;
+      transform: skewX(-16deg);
+    }
+
+    .slot-icon.item-diamond::before {
+      left: 24%;
+      top: 20%;
+      width: 52%;
+      height: 52%;
+      background: #7ff8ef;
+      clip-path: polygon(50% 0, 100% 38%, 50% 100%, 0 38%);
+      box-shadow: inset -5px -5px #1496a0;
+    }
+
+    .slot-icon.item-wool::before {
+      left: 18%;
+      top: 20%;
+      width: 64%;
+      height: 55%;
+      background: #f5efe0;
+      border-radius: 35%;
+      box-shadow: -4px 4px #c9c1b0, 4px -2px #fff7eb;
+    }
+
+    .slot-icon.item-raw_mutton::before,
+    .slot-icon.item-cooked_mutton::before {
+      left: 23%;
+      top: 25%;
+      width: 54%;
+      height: 44%;
+      background: #d66a67;
+      border-radius: 45% 55% 45% 55%;
+      box-shadow: inset -5px -4px #7a3434;
+    }
+
+    .slot-icon.item-cooked_mutton::before {
+      background: #c98342;
+      box-shadow: inset -5px -4px #6f3c21;
+    }
+
+    .slot-icon.item-bone::before {
+      left: 18%;
+      top: 44%;
+      width: 64%;
+      height: 13%;
+      background: #eee8d8;
+      transform: rotate(-23deg);
+      box-shadow: -5px -4px #eee8d8, 5px 4px #d2c8b8;
+    }
+
+    .slot-icon.item-gunpowder::before {
+      left: 22%;
+      top: 24%;
+      width: 56%;
+      height: 52%;
+      background:
+        radial-gradient(circle at 25% 30%, #485051 0 8%, transparent 9%),
+        radial-gradient(circle at 62% 43%, #1b2021 0 10%, transparent 11%),
+        radial-gradient(circle at 41% 72%, #596263 0 9%, transparent 10%),
+        #293031;
+      border-radius: 35%;
+    }
+
+    .slot-icon.item-cactus_fruit::before,
+    .slot-icon.item-apple::before {
+      left: 28%;
+      top: 24%;
+      width: 46%;
+      height: 48%;
+      background: #d84b3e;
+      border-radius: 50% 50% 45% 45%;
+      box-shadow: inset -5px -4px #8f2825;
+    }
+
+    .slot-icon.item-cactus_fruit::before {
+      background: #78be45;
+      box-shadow: inset -5px -4px #3d7c32;
+    }
+
+    .slot-icon.item-bow::before {
+      left: 28%;
+      top: 10%;
+      width: 42%;
+      height: 78%;
+      border: 4px solid #7a461d;
+      border-left: 0;
+      border-radius: 0 80% 80% 0;
+    }
+
+    .slot-icon.item-bow::after {
+      left: 34%;
+      top: 12%;
+      width: 2px;
+      height: 76%;
+      background: #ece2c4;
+    }
+
+    .slot-icon.item-arrow::before {
+      left: 18%;
+      top: 47%;
+      width: 62%;
+      height: 8%;
+      background: #7a461d;
+      transform: rotate(-22deg);
+    }
+
+    .slot-icon.item-arrow::after {
+      left: 65%;
+      top: 32%;
+      width: 20%;
+      height: 20%;
+      background: #d8d6cb;
+      clip-path: polygon(0 50%, 100% 0, 78% 50%, 100% 100%);
+      transform: rotate(-22deg);
+    }
+
+    .slot-icon.item-bucket::before,
+    .slot-icon.item-water_bucket::before,
+    .slot-icon.item-toxic_bucket::before {
+      left: 24%;
+      top: 27%;
+      width: 52%;
+      height: 48%;
+      background: #bfc4c2;
+      clip-path: polygon(8% 0, 92% 0, 78% 100%, 22% 100%);
+      box-shadow: inset -5px -5px #737978;
+    }
+
+    .slot-icon.item-water_bucket::after,
+    .slot-icon.item-toxic_bucket::after {
+      left: 30%;
+      top: 42%;
+      width: 40%;
+      height: 22%;
+      background: #3c90d6;
+    }
+
+    .slot-icon.item-toxic_bucket::after {
+      background: #9340bb;
+    }
+
+    .slot-icon.item-feather::before {
+      left: 35%;
+      top: 12%;
+      width: 22%;
+      height: 72%;
+      background: #f3f0df;
+      border-radius: 70% 10% 70% 10%;
+      transform: rotate(28deg);
+      box-shadow: inset -4px -5px #b9b1a0;
+    }
+
+    .slot-icon.item-raw_beef::before,
+    .slot-icon.item-cooked_beef::before,
+    .slot-icon.item-raw_chicken::before,
+    .slot-icon.item-cooked_chicken::before {
+      left: 20%;
+      top: 24%;
+      width: 58%;
+      height: 46%;
+      background: #bd5b57;
+      border-radius: 35% 55% 42% 50%;
+      box-shadow: inset -5px -5px #6d2d2d;
+    }
+
+    .slot-icon.item-cooked_beef::before,
+    .slot-icon.item-cooked_chicken::before {
+      background: #b9723e;
+      box-shadow: inset -5px -5px #61351f;
+    }
+
+    .inventory {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      display: grid;
+      grid-template-columns: minmax(260px, 330px) minmax(290px, 410px);
+      gap: 12px;
+      width: min(790px, calc(100vw - 24px));
+      max-height: min(720px, calc(100vh - 24px));
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(11, 14, 15, 0.95);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.54);
+      transform: translate(-50%, -50%);
+      overflow: auto;
+      pointer-events: auto;
+      backdrop-filter: blur(14px);
+    }
+
+    .panel {
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 8px;
+      background: var(--panel-2);
+      padding: 10px;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 8px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .panel-title small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .paperdoll-row {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    #paperdoll {
+      width: 112px;
+      height: 148px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      background: linear-gradient(#31464c, #182224);
+      image-rendering: pixelated;
+    }
+
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 5px;
+    }
+
+    .craft-wrap {
+      display: none;
+      grid-template-columns: auto 68px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .craft-grid {
+      display: grid;
+      gap: 5px;
+    }
+
+    .craft-grid.size-2 {
+      grid-template-columns: repeat(2, 52px);
+    }
+
+    .craft-grid.size-3 {
+      grid-template-columns: repeat(3, 52px);
+    }
+
+    .craft-output {
+      width: 64px;
+    }
+
+    .furnace-grid {
+      display: grid;
+      grid-template-columns: 62px 1fr 62px;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .flame {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .progress {
+      height: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+    }
+
+    .progress i {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #e16a2f, #f0c25e);
+    }
+
+    .recipe-note,
+    .toast {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      line-height: 1.45;
+    }
+
+    .recipe-book {
+      display: grid;
+      gap: 6px;
+      margin-top: 9px;
+      max-height: 180px;
+      overflow: auto;
+    }
+
+    .recipe-button {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      padding: 7px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.18);
+      color: #edf3e9;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 750;
+      text-align: left;
+    }
+
+    .recipe-button:hover {
+      border-color: rgba(255, 255, 255, 0.34);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .recipe-button:disabled {
+      color: rgba(237, 243, 233, 0.42);
+      cursor: not-allowed;
+      opacity: 0.62;
+    }
+
+    .recipe-cost {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+      text-align: right;
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: min(460px, calc(100vw - 32px));
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 8px;
+      background: rgba(10, 14, 17, 0.86);
+      text-align: center;
+      transform: translate(-50%, -50%);
+      pointer-events: auto;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+    }
+
+    .toast h1 {
+      margin: 0 0 8px;
+      font-size: clamp(22px, 4vw, 36px);
+      letter-spacing: 0;
+    }
+
+    .toast p {
+      margin: 0;
+    }
+
+    .quick-message {
+      position: absolute;
+      left: 50%;
+      bottom: 92px;
+      min-width: 160px;
+      max-width: calc(100vw - 24px);
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      background: rgba(9, 11, 12, 0.82);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 750;
+      text-align: center;
+      transform: translateX(-50%);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 160ms ease;
+    }
+
+    .quick-message.show {
+      opacity: 1;
+    }
+
+    .cursor-stack {
+      position: fixed;
+      z-index: 20;
+      width: 48px;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 760px) {
+      .inventory {
+        grid-template-columns: 1fr;
+      }
+
+      .hint {
+        top: auto;
+        bottom: 92px;
+        font-size: 11px;
+      }
+
+      .inventory-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <section class="topbar" aria-label="Durum">
+      <div class="meters">
+        <div class="meter"><span>Can</span><div class="bar"><i id="healthBar"></i></div></div>
+        <div class="meter"><span>Açlık</span><div class="bar"><i id="hungerBar"></i></div></div>
+        <div class="meter"><span>Zırh</span><div class="bar"><i id="armorBar"></i></div></div>
+        <div class="meter"><span>Isı</span><div class="bar"><i id="heatBar"></i></div></div>
+        <div class="meter"><span>XP</span><div class="bar"><i id="xpBar"></i></div></div>
+      </div>
+      <div class="status">
+        <span id="worldStatus">Gün 1 - Sabah</span>
+        <span id="coordStatus">0, 0</span>
+      </div>
+    </section>
+
+    <section class="hint">
+      A/D hareket, W/Space zıpla, Shift koş. Sol tık basılı tut kaz/saldır, sağ tık yerleştir/ye/uyur/sandık aç. E envanter, 1-9 hotbar, R yeni dünya.
+    </section>
+
+    <section id="hotbar" class="hotbar" aria-label="Hotbar"></section>
+
+    <section id="inventoryPanel" class="inventory hidden" aria-label="Envanter">
+      <div class="panel">
+        <h2 class="panel-title">Karakter <small id="armorText">Zırh yok</small></h2>
+        <div class="paperdoll-row">
+          <canvas id="paperdoll" width="112" height="148"></canvas>
+          <div>
+            <span class="small-label">Zırh</span>
+            <button id="armorSlot" class="slot armor-slot" aria-label="Zırh slotu"></button>
+          </div>
+        </div>
+        <h2 class="panel-title">Envanter <small>İlk 9 slot hotbar</small></h2>
+        <div id="inventoryGrid" class="inventory-grid"></div>
+      </div>
+
+      <div class="panel">
+        <h2 class="panel-title">Crafting <small id="craftModeText">2x2</small></h2>
+        <div class="craft-wrap">
+          <div id="craftGrid" class="craft-grid size-2"></div>
+          <button id="craftOutput" class="slot craft-output" aria-label="Craft çıktısı"></button>
+        </div>
+        <div id="recipeNote" class="recipe-note"></div>
+        <div id="recipeBook" class="recipe-book"></div>
+
+        <h2 class="panel-title" style="margin-top: 14px;">Fırın <small id="furnaceModeText">Yakınında değil</small></h2>
+        <div class="furnace-grid">
+          <div>
+            <span class="small-label">Girdi</span>
+            <button id="furnaceInput" class="slot" aria-label="Fırın girdisi"></button>
+            <span class="small-label" style="margin-top: 8px;">Yakıt</span>
+            <button id="furnaceFuel" class="slot" aria-label="Fırın yakıtı"></button>
+          </div>
+          <div class="flame">
+            <div class="progress"><i id="burnBar"></i></div>
+            <div class="progress"><i id="smeltBar"></i></div>
+          </div>
+          <div>
+            <span class="small-label">Çıktı</span>
+            <button id="furnaceOutput" class="slot" aria-label="Fırın çıktısı"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="message" class="toast">
+      <h1>2D Minecraft Survival</h1>
+      <p>Boş elle doğarsın. Ağaç kes, craft et, geceyi atlat.</p>
+    </section>
+
+    <section id="mainMenu" class="main-menu" aria-label="Ana menü">
+      <div class="menu-panel">
+        <h1 class="menu-title">2D Minecraft Survival</h1>
+        <div class="menu-actions">
+          <button id="startGameBtn">Oyuna Başla</button>
+          <button id="newWorldBtn">Yeni Dünya Oluştur</button>
+          <button id="loadWorldsBtn">Kayıtlı Dünyalar</button>
+          <button id="saveWorldBtn">Dünyayı Kaydet</button>
+          <div class="mode-row">
+            <button id="survivalModeBtn" class="active">Survival</button>
+            <button id="creativeModeBtn">Creative</button>
+          </div>
+          <button id="settingsBtn">Ayarlar</button>
+          <button id="multiplayerBtn">Multiplayer</button>
+        </div>
+        <div id="worldsBox" class="worlds-box">
+          <p class="menu-subtitle">Kayıtlı Dünyalar</p>
+          <div id="savedWorldList"></div>
+        </div>
+        <div id="lanMenuBox" class="lan-box">
+          <p class="menu-subtitle">LAN</p>
+          <div class="settings-row"><span>Aynı ağdaki sunucuya bağlan</span><button id="lanJoinBtn">LAN</button></div>
+        </div>
+        <div id="settingsBox" class="settings-box">
+          <div class="settings-row"><span>Hava efektleri</span><button id="weatherToggle">Açık</button></div>
+          <div class="settings-row"><span>Mor biyom tehlikesi</span><button id="dangerToggle">Açık</button></div>
+        </div>
+      </div>
+    </section>
+
+    <div id="quickMessage" class="quick-message"></div>
+    <div id="cursorStack" class="cursor-stack hidden"></div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const hotbarEl = document.getElementById("hotbar");
+      const invPanel = document.getElementById("inventoryPanel");
+      const invGridEl = document.getElementById("inventoryGrid");
+      const craftGridEl = document.getElementById("craftGrid");
+      const craftOutputEl = document.getElementById("craftOutput");
+      const recipeNoteEl = document.getElementById("recipeNote");
+      const recipeBookEl = document.getElementById("recipeBook");
+      const furnaceInputEl = document.getElementById("furnaceInput");
+      const furnaceFuelEl = document.getElementById("furnaceFuel");
+      const furnaceOutputEl = document.getElementById("furnaceOutput");
+      const burnBar = document.getElementById("burnBar");
+      const smeltBar = document.getElementById("smeltBar");
+      const healthBar = document.getElementById("healthBar");
+      const hungerBar = document.getElementById("hungerBar");
+      const armorBar = document.getElementById("armorBar");
+      const heatBar = document.getElementById("heatBar");
+      const xpBar = document.getElementById("xpBar");
+      const worldStatus = document.getElementById("worldStatus");
+      const coordStatus = document.getElementById("coordStatus");
+      const craftModeText = document.getElementById("craftModeText");
+      const furnaceModeText = document.getElementById("furnaceModeText");
+      const armorText = document.getElementById("armorText");
+      const armorSlotEl = document.getElementById("armorSlot");
+      const paperdoll = document.getElementById("paperdoll");
+      const paper = paperdoll.getContext("2d");
+      const messageEl = document.getElementById("message");
+      const quickMessageEl = document.getElementById("quickMessage");
+      const cursorStackEl = document.getElementById("cursorStack");
+      const mainMenu = document.getElementById("mainMenu");
+      const startGameBtn = document.getElementById("startGameBtn");
+      const newWorldBtn = document.getElementById("newWorldBtn");
+      const loadWorldsBtn = document.getElementById("loadWorldsBtn");
+      const saveWorldBtn = document.getElementById("saveWorldBtn");
+      const survivalModeBtn = document.getElementById("survivalModeBtn");
+      const creativeModeBtn = document.getElementById("creativeModeBtn");
+      const settingsBtn = document.getElementById("settingsBtn");
+      const multiplayerBtn = document.getElementById("multiplayerBtn");
+      const worldsBox = document.getElementById("worldsBox");
+      const savedWorldList = document.getElementById("savedWorldList");
+      const lanBox = document.getElementById("lanMenuBox");
+      const lanJoinBtn = document.getElementById("lanJoinBtn");
+      const settingsBox = document.getElementById("settingsBox");
+      const weatherToggle = document.getElementById("weatherToggle");
+      const dangerToggle = document.getElementById("dangerToggle");
+
+      const TILE = 32;
+      const WORLD_W = 260;
+      const WORLD_H = 96;
+      const GRAVITY = 0.045;
+      const MAX_FALL = 1.35;
+      const SEA = 55;
+      const SPAWN_X = 20;
+      const DAY_MS = 6 * 60 * 1000;
+      const NIGHT_MS = 4 * 60 * 1000;
+      const CYCLE_MS = DAY_MS + NIGHT_MS;
+      const SAVE_KEY = "mc2dWorldSavesV2";
+
+      const B = {
+        AIR: 0,
+        GRASS: 1,
+        DIRT: 2,
+        STONE: 3,
+        LOG: 4,
+        LEAVES: 5,
+        COAL: 6,
+        SAND: 7,
+        WATER: 8,
+        TABLE: 9,
+        FURNACE: 10,
+        BED: 11,
+        IRON: 12,
+        PLANKS: 13,
+        DIAMOND: 14,
+        GLASS: 15,
+        BRICKS: 16,
+        CHEST: 17,
+        CACTUS: 18,
+        CAMPFIRE: 19,
+        DOOR: 20,
+        VIOLET_GRASS: 21,
+        VIOLET_STONE: 22,
+        VIOLET_LOG: 23,
+        VIOLET_LEAVES: 24,
+        TOXIC: 25
+      };
+
+      const blocks = {
+        [B.AIR]: { name: "Hava", solid: false, color: "#000000", dark: "#000000" },
+        [B.GRASS]: { name: "Çimen", solid: true, color: "#6abf52", dark: "#426b32", drop: B.DIRT },
+        [B.DIRT]: { name: "Toprak", solid: true, color: "#8c5b38", dark: "#5b3824", drop: B.DIRT },
+        [B.STONE]: { name: "Taş", solid: true, color: "#858b8b", dark: "#53595a", drop: B.STONE, needPick: 1 },
+        [B.LOG]: { name: "Odun", solid: false, color: "#8f5b2e", dark: "#4d2d17", drop: B.LOG },
+        [B.LEAVES]: { name: "Yaprak", solid: false, color: "#4e9d43", dark: "#2e612d", drop: null },
+        [B.COAL]: { name: "Kömür", solid: true, color: "#62696a", dark: "#141719", drop: B.COAL, needPick: 1 },
+        [B.SAND]: { name: "Kum", solid: true, color: "#d9c174", dark: "#9b8246", drop: B.SAND },
+        [B.WATER]: { name: "Su", solid: false, color: "#3c90d6", dark: "#2263a3" },
+        [B.TABLE]: { name: "Crafting Table", solid: true, color: "#b77a3a", dark: "#5c351b", drop: B.TABLE },
+        [B.FURNACE]: { name: "Fırın", solid: true, color: "#6a6f70", dark: "#25292b", drop: B.FURNACE, needPick: 1 },
+        [B.BED]: { name: "Yatak", solid: true, color: "#bf4242", dark: "#6b2424", drop: B.BED },
+        [B.IRON]: { name: "Demir Cevheri", solid: true, color: "#8e9290", dark: "#b87955", drop: B.IRON, needPick: 2 },
+        [B.PLANKS]: { name: "Tahta", solid: true, color: "#bf8540", dark: "#70431f", drop: B.PLANKS },
+        [B.DIAMOND]: { name: "Elmas Cevheri", solid: true, color: "#67706d", dark: "#33d6cf", drop: "diamond", needPick: 3 },
+        [B.GLASS]: { name: "Cam", solid: true, color: "#9ed6e0", dark: "#4a8390", drop: B.GLASS },
+        [B.BRICKS]: { name: "Taş Tuğla", solid: true, color: "#787e7e", dark: "#3e4545", drop: B.BRICKS, needPick: 1 },
+        [B.CHEST]: { name: "Sandık", solid: true, color: "#b47732", dark: "#5b3416", drop: B.CHEST },
+        [B.CACTUS]: { name: "Kaktus", solid: true, color: "#4f9b45", dark: "#2f6f36", drop: B.CACTUS },
+        [B.CAMPFIRE]: { name: "Kamp Atesi", solid: false, color: "#6b3d20", dark: "#1e1712", drop: null },
+        [B.DOOR]: { name: "Kapı", solid: false, color: "#8f5b2e", dark: "#4d2d17", drop: B.DOOR },
+        [B.VIOLET_GRASS]: { name: "Mor Çimen", solid: true, color: "#5d3c86", dark: "#33204f", drop: B.DIRT },
+        [B.VIOLET_STONE]: { name: "Mor Taş", solid: true, color: "#65517e", dark: "#2d223d", drop: B.VIOLET_STONE, needPick: 1 },
+        [B.VIOLET_LOG]: { name: "Mor Odun", solid: false, color: "#6e3c8c", dark: "#2d163d", drop: B.VIOLET_LOG },
+        [B.VIOLET_LEAVES]: { name: "Mor Yaprak", solid: false, color: "#7c4db4", dark: "#3a2361", drop: null },
+        [B.TOXIC]: { name: "Zehirli Sıvı", solid: false, color: "#9b3ed0", dark: "#4b1f65" }
+      };
+
+      const items = {
+        stick: { name: "Çubuk", color: "#b87738", dark: "#623a1b", icon: "" },
+        wood_pickaxe: { name: "Tahta Kazma", color: "#bf8540", dark: "#70431f", icon: "P", max: 1, tool: "pick", level: 1 },
+        stone_pickaxe: { name: "Taş Kazma", color: "#858b8b", dark: "#53595a", icon: "P", max: 1, tool: "pick", level: 2 },
+        iron_pickaxe: { name: "Demir Kazma", color: "#d8d6cb", dark: "#8f8b80", icon: "P", max: 1, tool: "pick", level: 3 },
+        wood_axe: { name: "Tahta Balta", color: "#bf8540", dark: "#70431f", icon: "A", max: 1, tool: "axe", level: 1, damage: 6 },
+        stone_axe: { name: "Taş Balta", color: "#858b8b", dark: "#53595a", icon: "A", max: 1, tool: "axe", level: 2, damage: 9 },
+        iron_axe: { name: "Demir Balta", color: "#d8d6cb", dark: "#8f8b80", icon: "A", max: 1, tool: "axe", level: 3, damage: 12 },
+        bow: { name: "Yay", color: "#8f5b2e", dark: "#4d2d17", icon: "", max: 1, damage: 8 },
+        arrow: { name: "Ok", color: "#d8d6cb", dark: "#6b3d20", icon: "" },
+        wood_sword: { name: "Tahta Kılıç", color: "#bf8540", dark: "#70431f", icon: "S", max: 1, damage: 7 },
+        stone_sword: { name: "Taş Kılıç", color: "#858b8b", dark: "#53595a", icon: "S", max: 1, damage: 10 },
+        iron_sword: { name: "Demir Kılıç", color: "#d8d6cb", dark: "#8f8b80", icon: "S", max: 1, damage: 14 },
+        wool: { name: "Yün", color: "#eee8d8", dark: "#b9b1a0", icon: "W" },
+        raw_mutton: { name: "Çiğ Et", color: "#c96563", dark: "#7a3434", icon: "", food: 10 },
+        cooked_mutton: { name: "Pişmiş Et", color: "#bf7442", dark: "#6f3c21", icon: "", food: 24 },
+        bone: { name: "Kemik", color: "#eee8d8", dark: "#b9b1a0", icon: "" },
+        gunpowder: { name: "Barut", color: "#485051", dark: "#1b2021", icon: "" },
+        cactus_fruit: { name: "Kaktus Meyvesi", color: "#78be45", dark: "#3d7c32", icon: "", food: 7 },
+        apple: { name: "Elma", color: "#d84b3e", dark: "#8f2825", icon: "", food: 12 },
+        feather: { name: "Tüy", color: "#f3f0df", dark: "#b9b1a0", icon: "" },
+        raw_beef: { name: "Çiğ Biftek", color: "#bd5b57", dark: "#6d2d2d", icon: "", food: 12 },
+        cooked_beef: { name: "Pişmiş Biftek", color: "#b9723e", dark: "#61351f", icon: "", food: 28 },
+        raw_chicken: { name: "Çiğ Tavuk", color: "#e0b3a0", dark: "#8d5745", icon: "", food: 8 },
+        cooked_chicken: { name: "Pişmiş Tavuk", color: "#c98848", dark: "#6f3c21", icon: "", food: 20 },
+        leather: { name: "Deri", color: "#8f5b2e", dark: "#4d2d17", icon: "L" },
+        bucket: { name: "Kova", color: "#bfc4c2", dark: "#737978", icon: "", max: 1 },
+        water_bucket: { name: "Su Kovası", color: "#64a6dc", dark: "#2263a3", icon: "", max: 1 },
+        toxic_bucket: { name: "Zehir Kovası", color: "#9340bb", dark: "#4b1f65", icon: "", max: 1 },
+        iron_ingot: { name: "Demir", color: "#d8d6cb", dark: "#8f8b80", icon: "I" },
+        diamond: { name: "Elmas", color: "#5ce7df", dark: "#1c8e98", icon: "D" },
+        diamond_pickaxe: { name: "Elmas Kazma", color: "#5ce7df", dark: "#1c8e98", icon: "P", max: 1, tool: "pick", level: 4 },
+        diamond_axe: { name: "Elmas Balta", color: "#5ce7df", dark: "#1c8e98", icon: "A", max: 1, tool: "axe", level: 4, damage: 16 },
+        diamond_sword: { name: "Elmas Kılıç", color: "#5ce7df", dark: "#1c8e98", icon: "S", max: 1, damage: 18 },
+        diamond_armor: { name: "Elmas Zırh", color: "#5ce7df", dark: "#1c8e98", icon: "A", max: 1, armor: 6 },
+        iron_armor: { name: "Demir Zırh", color: "#d8d6cb", dark: "#8f8b80", icon: "A", max: 1, armor: 4 }
+      };
+
+      const fuelValues = {
+        [B.COAL]: 9000,
+        [B.LOG]: 4200,
+        [B.PLANKS]: 3200,
+        stick: 1200
+      };
+
+      const smeltRecipes = {
+        [B.IRON]: { out: "iron_ingot", time: 5200 },
+        [B.SAND]: { out: B.GLASS, time: 3000 },
+        raw_mutton: { out: "cooked_mutton", time: 3600 }
+        ,
+        raw_beef: { out: "cooked_beef", time: 3800 },
+        raw_chicken: { out: "cooked_chicken", time: 3200 }
+      };
+
+      const recipes = [
+        { name: "Tahta", shapeless: true, in: { [B.LOG]: 1 }, out: B.PLANKS, count: 4, size: 2 },
+        { name: "Çubuk", pattern: ["P", "P"], key: { P: B.PLANKS }, out: "stick", count: 4, size: 2 },
+        { name: "Crafting Table", pattern: ["PP", "PP"], key: { P: B.PLANKS }, out: B.TABLE, count: 1, size: 2 },
+        { name: "Kapı", pattern: ["PP", "PP", "PP"], key: { P: B.PLANKS }, out: B.DOOR, count: 1, size: 3 },
+        { name: "Sandık", pattern: ["PPP", "P P", "PPP"], key: { P: B.PLANKS }, out: B.CHEST, count: 1, size: 3 },
+        { name: "Yay", pattern: [" ST", "S T", " ST"], key: { S: "stick", T: "feather" }, out: "bow", count: 1, size: 3 },
+        { name: "Ok", pattern: ["F", "T", "E"], key: { F: "bone", T: "stick", E: "feather" }, out: "arrow", count: 4, size: 3 },
+        { name: "Kova", pattern: ["I I", " I "], key: { I: "iron_ingot" }, out: "bucket", count: 1, size: 3 },
+        { name: "Kamp Atesi", pattern: [" T ", "TCT", "LLL"], key: { T: "stick", C: B.COAL, L: B.LOG }, out: B.CAMPFIRE, count: 1, size: 3 },
+        { name: "Kaktus Meyvesi", shapeless: true, in: { [B.CACTUS]: 1 }, out: "cactus_fruit", count: 2, size: 2 },
+        { name: "Taş Tuğla", pattern: ["SS", "SS"], key: { S: B.STONE }, out: B.BRICKS, count: 4, size: 2 },
+        { name: "Fırın", pattern: ["SSS", "S S", "SSS"], key: { S: B.STONE }, out: B.FURNACE, count: 1, size: 3 },
+        { name: "Yatak", pattern: ["WWW", "PPP"], key: { W: "wool", P: B.PLANKS }, out: B.BED, count: 1, size: 3 },
+        { name: "Tahta Kazma", pattern: ["PPP", " T ", " T "], key: { P: B.PLANKS, T: "stick" }, out: "wood_pickaxe", count: 1, size: 3 },
+        { name: "Taş Kazma", pattern: ["SSS", " T ", " T "], key: { S: B.STONE, T: "stick" }, out: "stone_pickaxe", count: 1, size: 3 },
+        { name: "Demir Kazma", pattern: ["III", " T ", " T "], key: { I: "iron_ingot", T: "stick" }, out: "iron_pickaxe", count: 1, size: 3 },
+        { name: "Elmas Kazma", pattern: ["DDD", " T ", " T "], key: { D: "diamond", T: "stick" }, out: "diamond_pickaxe", count: 1, size: 3 },
+        { name: "Tahta Balta", pattern: ["PP", "PT", " T"], key: { P: B.PLANKS, T: "stick" }, out: "wood_axe", count: 1, size: 3 },
+        { name: "Taş Balta", pattern: ["SS", "ST", " T"], key: { S: B.STONE, T: "stick" }, out: "stone_axe", count: 1, size: 3 },
+        { name: "Demir Balta", pattern: ["II", "IT", " T"], key: { I: "iron_ingot", T: "stick" }, out: "iron_axe", count: 1, size: 3 },
+        { name: "Elmas Balta", pattern: ["DD", "DT", " T"], key: { D: "diamond", T: "stick" }, out: "diamond_axe", count: 1, size: 3 },
+        { name: "Tahta Kılıç", pattern: ["P", "P", "T"], key: { P: B.PLANKS, T: "stick" }, out: "wood_sword", count: 1, size: 3 },
+        { name: "Taş Kılıç", pattern: ["S", "S", "T"], key: { S: B.STONE, T: "stick" }, out: "stone_sword", count: 1, size: 3 },
+        { name: "Demir Kılıç", pattern: ["I", "I", "T"], key: { I: "iron_ingot", T: "stick" }, out: "iron_sword", count: 1, size: 3 },
+        { name: "Elmas Kılıç", pattern: ["D", "D", "T"], key: { D: "diamond", T: "stick" }, out: "diamond_sword", count: 1, size: 3 },
+        { name: "Demir Zırh", pattern: ["I I", "III", "III"], key: { I: "iron_ingot" }, out: "iron_armor", count: 1, size: 3 },
+        { name: "Elmas Zırh", pattern: ["D D", "DDD", "DDD"], key: { D: "diamond" }, out: "diamond_armor", count: 1, size: 3 },
+        { name: "Cam Duvar", pattern: ["GG", "GG"], key: { G: B.GLASS }, out: B.GLASS, count: 4, size: 2 }
+      ];
+
+      let world = [];
+      let heightMap = [];
+      let biomeMap = [];
+      let chestLoot = new Map();
+      let entities = [];
+      let arrows = [];
+      let seed = Math.floor(Math.random() * 999999);
+      let camera = { x: 0, y: 0 };
+      let keys = {};
+      let mouse = { x: 0, y: 0 };
+      let time = 1.1;
+      let worldClock = 0;
+      let day = 1;
+      let lastFrame = performance.now();
+      let started = false;
+      let inventoryOpen = false;
+      let selected = 0;
+      let messageTimer = 0;
+      let monsterClock = 0;
+      let craftSize = 2;
+      let heldStack = null;
+      let mining = { active: false, x: 0, y: 0, id: B.AIR, progress: 0, total: 1 };
+      let mouseButtons = { left: false };
+      let dragSource = null;
+      let weather = { type: "clear", timer: 42000, wind: 0.25 };
+      let settings = { weather: true, danger: true };
+      let gameMode = "survival";
+      let currentWorldName = "Dünya 1";
+      let lastAutoSave = 0;
+
+      let inventory = Array.from({ length: 36 }, () => null);
+      let craftSlots = Array.from({ length: 4 }, () => null);
+      let armorSlot = null;
+      let furnace = {
+        input: null,
+        fuel: null,
+        output: null,
+        burn: 0,
+        burnMax: 1,
+        progress: 0,
+        target: 1
+      };
+
+      const player = {
+        x: SPAWN_X,
+        y: 20,
+        w: 0.72,
+        h: 1.72,
+        vx: 0,
+        vy: 0,
+        facing: 1,
+        grounded: false,
+        health: 100,
+        hunger: 100,
+        xp: 0,
+        level: 1,
+        poison: 0,
+        walk: 0,
+        attack: 0,
+        invuln: 0,
+        heat: 72
+      };
+
+      const multiplayer = {
+        socket: null,
+        id: null,
+        enabled: false,
+        applyingRemoteBlock: false,
+        lastSend: 0,
+        peers: new Map()
+      };
+
+      function hash(n) {
+        const x = Math.sin(n * 127.1 + seed * 0.013) * 43758.5453123;
+        return x - Math.floor(x);
+      }
+
+      function hash2(x, y, salt = 0) {
+        return hash(x * 17.31 + y * 57.77 + salt * 91.13);
+      }
+
+      function noise(x) {
+        const i = Math.floor(x);
+        const f = x - i;
+        const a = hash(i);
+        const b = hash(i + 1);
+        const t = f * f * (3 - 2 * f);
+        return a + (b - a) * t;
+      }
+
+      function terrainAt(x) {
+        const hills = noise(x / 32) * 7 + noise(x / 80) * 8 - noise(x / 9) * 2;
+        return Math.floor(39 + hills);
+      }
+
+      function biomeAt(x) {
+        if (x < SPAWN_X + 18) return "forest";
+        const broad = noise(x / 58 + 19) * 0.65 + noise(x / 21 + 71) * 0.35;
+        if (broad < 0.18 && x > 90) return "violet";
+        if (broad > 0.76) return "desert";
+        if (noise(x / 36 + 7) > 0.69) return "plains";
+        return "forest";
+      }
+
+      function biomeLabel(x) {
+        const biome = biomeMap[Math.max(0, Math.min(WORLD_W - 1, Math.floor(x)))] || "forest";
+        return biome === "desert" ? "Çöl" : biome === "plains" ? "Ova" : biome === "violet" ? "Mor Vadi" : "Orman";
+      }
+
+      function cycleProgress() {
+        return (worldClock % CYCLE_MS) / CYCLE_MS;
+      }
+
+      function daylightLevel() {
+        const p = cycleProgress();
+        if (p < 0.6) {
+          const d = p / 0.6;
+          return 0.38 + Math.sin(d * Math.PI) * 0.62;
+        }
+        const n = (p - 0.6) / 0.4;
+        return 0.12 + Math.sin(n * Math.PI) * 0.18;
+      }
+
+      function getBlock(x, y) {
+        x = Math.floor(x);
+        y = Math.floor(y);
+        if (y < 0) return B.AIR;
+        if (x < 0 || x >= WORLD_W || y >= WORLD_H) return B.STONE;
+        return world[y][x];
+      }
+
+      function setBlock(x, y, id) {
+        x = Math.floor(x);
+        y = Math.floor(y);
+        if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H) return;
+        world[y][x] = id;
+        sendBlockChange(x, y, id);
+      }
+
+      function isSolid(x, y) {
+        return blocks[getBlock(x, y)]?.solid;
+      }
+
+      function itemInfo(item) {
+        return blocks[item] || items[item] || { name: "?", color: "#888", dark: "#555", icon: "?" };
+      }
+
+      function itemName(item) {
+        return itemInfo(item).name;
+      }
+
+      function maxStack(item) {
+        return itemInfo(item).max || 64;
+      }
+
+      function sameStack(a, b) {
+        return a && b && a.item === b.item;
+      }
+
+      function cloneStack(stack) {
+        return stack ? { item: stack.item, count: stack.count } : null;
+      }
+
+      function makeStack(item, count = 1) {
+        return { item, count };
+      }
+
+      function addToInventory(item, count = 1) {
+        let remaining = count;
+        for (const slot of inventory) {
+          if (slot && slot.item === item && slot.count < maxStack(item)) {
+            const move = Math.min(remaining, maxStack(item) - slot.count);
+            slot.count += move;
+            remaining -= move;
+            if (remaining <= 0) return true;
+          }
+        }
+        for (let i = 0; i < inventory.length; i++) {
+          if (!inventory[i]) {
+            const move = Math.min(remaining, maxStack(item));
+            inventory[i] = makeStack(item, move);
+            remaining -= move;
+            if (remaining <= 0) return true;
+          }
+        }
+        toast("Envanter dolu");
+        return false;
+      }
+
+      function returnStack(stack) {
+        if (!stack) return;
+        addToInventory(stack.item, stack.count);
+      }
+
+      function canAddToInventory(item, count = 1) {
+        let remaining = count;
+        for (const slot of inventory) {
+          if (slot && slot.item === item && slot.count < maxStack(item)) {
+            remaining -= Math.min(remaining, maxStack(item) - slot.count);
+            if (remaining <= 0) return true;
+          }
+        }
+        for (const slot of inventory) {
+          if (!slot) {
+            remaining -= Math.min(remaining, maxStack(item));
+            if (remaining <= 0) return true;
+          }
+        }
+        return false;
+      }
+
+      function clearInventory() {
+        inventory = Array.from({ length: 36 }, () => null);
+        craftSize = 2;
+        craftSlots = Array.from({ length: craftSize * craftSize }, () => null);
+        armorSlot = null;
+        heldStack = null;
+        furnace = { input: null, fuel: null, output: null, burn: 0, burnMax: 1, progress: 0, target: 1 };
+      }
+
+      function setGameMode(mode) {
+        gameMode = mode === "creative" ? "creative" : "survival";
+        survivalModeBtn.classList.toggle("active", gameMode === "survival");
+        creativeModeBtn.classList.toggle("active", gameMode === "creative");
+        if (gameMode === "creative") {
+          player.health = 100;
+          player.hunger = 100;
+          player.heat = 72;
+          player.poison = 0;
+          fillCreativeInventory();
+        }
+        renderAllUi();
+      }
+
+      function fillCreativeInventory() {
+        const creativeItems = [
+          B.GRASS, B.DIRT, B.STONE, B.LOG, B.PLANKS, B.LEAVES, B.SAND, B.WATER, B.GLASS,
+          B.BRICKS, B.CHEST, B.TABLE, B.FURNACE, B.BED, B.DOOR, B.CAMPFIRE, B.CACTUS, B.COAL,
+          B.IRON, B.DIAMOND, B.VIOLET_GRASS, B.VIOLET_STONE, B.VIOLET_LOG, B.VIOLET_LEAVES, B.TOXIC,
+          "stick", "torch", "wood_pickaxe", "stone_pickaxe", "iron_pickaxe", "diamond_pickaxe",
+          "wood_axe", "iron_sword", "diamond_sword", "bow", "arrow"
+        ].filter((item) => blocks[item] || items[item]);
+        inventory = Array.from({ length: 36 }, (_, i) => creativeItems[i] ? makeStack(creativeItems[i], maxStack(creativeItems[i])) : null);
+      }
+
+      function savedWorlds() {
+        try {
+          return JSON.parse(localStorage.getItem(SAVE_KEY) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function writeSavedWorlds(list) {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(list.slice(0, 8)));
+      }
+
+      function serializeWorld() {
+        return {
+          version: 2,
+          name: currentWorldName,
+          savedAt: Date.now(),
+          seed,
+          world,
+          heightMap,
+          biomeMap,
+          chestLoot: [...chestLoot].map(([key, loot]) => [key, loot.map(cloneStack)]),
+          entities,
+          arrows,
+          inventory: inventory.map(cloneStack),
+          craftSlots: craftSlots.map(cloneStack),
+          armorSlot: cloneStack(armorSlot),
+          furnace: {
+            input: cloneStack(furnace.input),
+            fuel: cloneStack(furnace.fuel),
+            output: cloneStack(furnace.output),
+            burn: furnace.burn,
+            burnMax: furnace.burnMax,
+            progress: furnace.progress,
+            target: furnace.target
+          },
+          player: { ...player },
+          day,
+          time,
+          worldClock,
+          weather: { ...weather },
+          settings: { ...settings },
+          gameMode,
+          selected
+        };
+      }
+
+      function saveCurrentWorld(showToast = true) {
+        const save = serializeWorld();
+        const list = savedWorlds().filter((entry) => entry.name !== save.name);
+        list.unshift(save);
+        writeSavedWorlds(list);
+        renderSavedWorlds();
+        if (showToast) toast(`${save.name} kaydedildi`);
+      }
+
+      function loadWorld(save) {
+        if (!save || !Array.isArray(save.world)) return;
+        currentWorldName = save.name || "Kayıtlı Dünya";
+        seed = Number.isFinite(save.seed) ? save.seed : seed;
+        world = save.world;
+        heightMap = save.heightMap || heightMap;
+        biomeMap = save.biomeMap || biomeMap;
+        chestLoot = new Map((save.chestLoot || []).map(([key, loot]) => [key, loot.map(cloneStack)]));
+        entities = save.entities || [];
+        arrows = save.arrows || [];
+        inventory = (save.inventory || inventory).map(cloneStack);
+        craftSlots = (save.craftSlots || []).map(cloneStack);
+        craftSize = Math.sqrt(craftSlots.length) || 2;
+        armorSlot = cloneStack(save.armorSlot);
+        furnace = save.furnace || furnace;
+        Object.assign(player, save.player || {});
+        day = save.day || 1;
+        time = save.time || 1.1;
+        worldClock = save.worldClock || 0;
+        weather = save.weather || weather;
+        settings = save.settings || settings;
+        selected = save.selected || 0;
+        setGameMode(save.gameMode || "survival");
+        started = true;
+        mainMenu.classList.add("hidden");
+        messageEl.classList.add("hidden");
+        renderAllUi();
+        toast(`${currentWorldName} yüklendi`);
+      }
+
+      function renderSavedWorlds() {
+        const list = savedWorlds();
+        savedWorldList.innerHTML = "";
+        if (!list.length) {
+          savedWorldList.innerHTML = `<div class="world-row"><div><strong>Kayıt yok</strong><small>Yeni dünya oluşturup kaydedebilirsin.</small></div></div>`;
+          return;
+        }
+        for (const save of list) {
+          const row = document.createElement("div");
+          row.className = "world-row";
+          const date = new Date(save.savedAt || Date.now()).toLocaleString("tr-TR");
+          row.innerHTML = `<div><strong>${save.name || "Kayıtlı Dünya"}</strong><small>${date} - ${save.gameMode === "creative" ? "Creative" : "Survival"}</small></div><button>Oyna</button>`;
+          row.querySelector("button").addEventListener("click", () => loadWorld(save));
+          savedWorldList.append(row);
+        }
+      }
+
+      function createNewWorld(mode = gameMode) {
+        currentWorldName = `Dünya ${savedWorlds().length + 1}`;
+        seed = Math.floor(Math.random() * 999999);
+        setGameMode(mode);
+        generateWorld();
+        started = true;
+        mainMenu.classList.add("hidden");
+        messageEl.classList.add("hidden");
+        saveCurrentWorld(false);
+        toast(`${currentWorldName} oluşturuldu`);
+      }
+
+      function generateWorld() {
+        const wasApplyingRemoteBlock = multiplayer.applyingRemoteBlock;
+        multiplayer.applyingRemoteBlock = true;
+        world = Array.from({ length: WORLD_H }, () => Array(WORLD_W).fill(B.AIR));
+        heightMap = Array(WORLD_W).fill(0);
+        biomeMap = Array(WORLD_W).fill("forest");
+        chestLoot = new Map();
+        for (let x = 0; x < WORLD_W; x++) {
+          const h = terrainAt(x);
+          const biome = biomeAt(x);
+          biomeMap[x] = biome;
+          heightMap[x] = h;
+          for (let y = h; y < WORLD_H; y++) {
+            let id = B.STONE;
+            const sandy = biome === "desert" || h > SEA - 2;
+            if (biome === "violet") id = y === h ? B.VIOLET_GRASS : y < h + 5 ? B.DIRT : B.VIOLET_STONE;
+            else if (y === h) id = sandy ? B.SAND : B.GRASS;
+            else if (y < h + 5) id = sandy ? B.SAND : B.DIRT;
+            world[y][x] = id;
+          }
+          if (h > SEA) {
+            for (let y = SEA; y < h; y++) world[y][x] = B.WATER;
+            world[h][x] = B.SAND;
+          }
+        }
+        carveCavesAndOres();
+        for (let x = 5; x < WORLD_W - 6; x++) {
+          const h = heightMap[x];
+          const nearSpawn = Math.abs(x - SPAWN_X) < 10;
+          if (!nearSpawn && biomeMap[x] === "violet" && world[h][x] === B.VIOLET_GRASS && hash(x * 47) > 0.62) {
+            makeVioletTree(x, h - 1);
+            x += 4 + Math.floor(hash(x * 5) * 4);
+          } else if (!nearSpawn && biomeMap[x] === "desert" && world[h][x] === B.SAND && hash(x * 83) > 0.9) {
+            makeCactus(x, h - 1);
+            x += 2;
+          } else if (!nearSpawn && world[h][x] === B.GRASS && hash(x * 41) > (biomeMap[x] === "forest" ? 0.72 : 0.9)) {
+            makeTree(x, h - 1);
+            x += 3 + Math.floor(hash(x * 2) * 3);
+          }
+        }
+        carveRavines();
+        placeVillages();
+        clearSpawn();
+        resetPlayer();
+        entities = [];
+        arrows = [];
+        for (let i = 0; i < 14; i++) spawnSheep(32 + i * 13 + Math.floor(hash(i * 31) * 6));
+        for (let i = 0; i < 8; i++) spawnCow(44 + i * 21 + Math.floor(hash(i * 19) * 8));
+        for (let i = 0; i < 12; i++) spawnChicken(28 + i * 17 + Math.floor(hash(i * 13) * 8));
+        spawnVioletHostiles();
+        clearInventory();
+        if (gameMode === "creative") fillCreativeInventory();
+        monsterClock = 0;
+        time = 1.1;
+        worldClock = 0;
+        day = 1;
+        multiplayer.applyingRemoteBlock = wasApplyingRemoteBlock;
+        renderAllUi();
+      }
+
+      function carveCavesAndOres() {
+        for (let y = 8; y < WORLD_H - 2; y++) {
+          for (let x = 2; x < WORLD_W - 2; x++) {
+            const surface = heightMap[x] || SEA;
+            if (y <= surface + 4) continue;
+            const cave = noise(x / 10 + y * 0.11) + noise(x / 18 - y * 0.08) + noise((x + y) / 26);
+            if (cave > 2.15 && hash2(x, y, 201) > 0.28) {
+              setBlock(x, y, B.AIR);
+              continue;
+            }
+            const baseBlock = getBlock(x, y);
+            if (baseBlock !== B.STONE && baseBlock !== B.VIOLET_STONE) continue;
+            const depth = y - surface;
+            if (depth > 9 && oreNoise(x, y, 6, 0.67, 5)) setBlock(x, y, B.COAL);
+            if (depth > 16 && oreNoise(x, y, 12, 0.75, 4)) setBlock(x, y, B.IRON);
+            if (depth > 30 && y > WORLD_H * 0.62 && oreNoise(x, y, 33, 0.84, 3)) setBlock(x, y, B.DIAMOND);
+          }
+        }
+      }
+
+      function oreNoise(x, y, salt, threshold, cluster) {
+        const vein = noise((x + salt * 13) / cluster) + noise((y - salt * 7) / cluster) + hash2(x, y, salt) * 0.55;
+        return vein > threshold + 1;
+      }
+
+      function makeTree(x, baseY) {
+        const height = 4 + Math.floor(hash(x * 11) * 4);
+        const variant = Math.floor(hash(x * 29) * 3);
+        for (let i = 0; i < height; i++) setBlock(x, baseY - i, B.LOG);
+        if (hash(x * 13) > 0.45) setBlock(x - 1, baseY - height + 2, B.LOG);
+        if (hash(x * 17) > 0.55) setBlock(x + 1, baseY - height + 1, B.LOG);
+
+        const cx = x;
+        const cy = baseY - height;
+        for (let yy = cy - 3; yy <= cy + 2; yy++) {
+          for (let xx = cx - 3; xx <= cx + 3; xx++) {
+            const dx = Math.abs(xx - cx);
+            const dy = Math.abs(yy - cy);
+            const shape = variant === 0 ? dx + dy * 0.9 : variant === 1 ? dx * 0.8 + dy : Math.max(dx, dy + 0.5);
+            if (shape < 3.25 + hash2(xx, yy, 77) * 0.7 && getBlock(xx, yy) === B.AIR) setBlock(xx, yy, B.LEAVES);
+          }
+        }
+      }
+
+      function makeCactus(x, baseY) {
+        const height = 2 + Math.floor(hash(x * 97) * 3);
+        for (let i = 0; i < height; i++) setBlock(x, baseY - i, B.CACTUS);
+      }
+
+      function makeVioletTree(x, baseY) {
+        const height = 8 + Math.floor(hash(x * 19) * 6);
+        for (let i = 0; i < height; i++) setBlock(x, baseY - i, B.VIOLET_LOG);
+        if (hash(x * 23) > 0.35) for (let i = 3; i < height - 2; i += 3) setBlock(x + (i % 2 ? -1 : 1), baseY - i, B.VIOLET_LOG);
+        const cx = x;
+        const cy = baseY - height;
+        for (let yy = cy - 4; yy <= cy + 3; yy++) {
+          for (let xx = cx - 4; xx <= cx + 4; xx++) {
+            const shape = Math.abs(xx - cx) * 0.8 + Math.abs(yy - cy) * 0.72;
+            if (shape < 4.1 + hash2(xx, yy, 177) * 0.8 && getBlock(xx, yy) === B.AIR) setBlock(xx, yy, B.VIOLET_LEAVES);
+          }
+        }
+      }
+
+      function carveRavines() {
+        for (let i = 0; i < 4; i++) {
+          const cx = 42 + Math.floor(hash(i * 91) * (WORLD_W - 84));
+          if (Math.abs(cx - SPAWN_X) < 22) continue;
+          const width = 2 + Math.floor(hash(i * 37) * 3);
+          for (let x = cx - width; x <= cx + width; x++) {
+            if (x < 3 || x >= WORLD_W - 3) continue;
+            const surface = heightMap[x];
+            const deep = Math.min(WORLD_H - 8, surface + 16 + Math.floor(hash2(x, i, 9) * 22));
+            for (let y = surface + 2; y < deep; y++) {
+              const taper = Math.abs(x - cx) + hash2(x, y, 707) * 1.4;
+              if (taper < width + 0.6) setBlock(x, y, B.AIR);
+            }
+            if (biomeMap[x] === "violet") {
+              const poolY = Math.min(WORLD_H - 6, deep - 2);
+              setBlock(x, poolY, B.TOXIC);
+            }
+          }
+        }
+      }
+
+      function placeVillages() {
+        const candidates = [74, 132, 196, 232];
+        let made = 0;
+        for (const base of candidates) {
+          const center = base + Math.floor(hash(base * 17) * 18) - 9;
+          if (made >= 2 || Math.abs(center - SPAWN_X) < 38 || hash(base * 43) < 0.58) continue;
+          if (center < 34 || center > WORLD_W - 34) continue;
+          const slice = heightMap.slice(center - 16, center + 17);
+          const avg = Math.round(slice.reduce((a, b) => a + b, 0) / slice.length);
+          if (avg > SEA - 3) continue;
+          flattenVillageGround(center, avg);
+          buildHouse(center - 11, avg, false);
+          buildHouse(center + 7, avg, true);
+          buildWell(center, avg);
+          made++;
+        }
+      }
+
+      function flattenVillageGround(center, ground) {
+        for (let x = center - 19; x <= center + 19; x++) {
+          if (x < 2 || x >= WORLD_W - 2) continue;
+          heightMap[x] = ground;
+          biomeMap[x] = "plains";
+          for (let y = 0; y < WORLD_H; y++) {
+            if (y < ground - 1) setBlock(x, y, B.AIR);
+            else if (y === ground) setBlock(x, y, B.GRASS);
+            else if (y < ground + 4) setBlock(x, y, B.DIRT);
+            else setBlock(x, y, B.STONE);
+          }
+        }
+      }
+
+      function buildHouse(left, ground, blacksmith) {
+        const width = blacksmith ? 9 : 7;
+        const wall = blacksmith ? B.BRICKS : B.PLANKS;
+        for (let x = left; x < left + width; x++) {
+          for (let y = ground - 5; y <= ground - 1; y++) {
+            const edge = x === left || x === left + width - 1 || y === ground - 5 || y === ground - 1;
+            setBlock(x, y, edge ? wall : B.AIR);
+          }
+        }
+        const roof = blacksmith ? B.BRICKS : B.PLANKS;
+        const mid = left + Math.floor(width / 2);
+        for (let x = left - 2; x <= left + width + 1; x++) {
+          const rise = Math.max(0, 3 - Math.abs(x - mid));
+          setBlock(x, ground - 6 - rise, roof);
+          setBlock(x, ground - 5 - rise, roof);
+        }
+        const doorX = blacksmith ? left + width - 1 : left;
+        setBlock(doorX, ground - 1, B.DOOR);
+        setBlock(doorX, ground - 2, B.DOOR);
+        setBlock(doorX, ground - 3, B.AIR);
+        setBlock(doorX + (blacksmith ? -1 : 1), ground - 1, B.AIR);
+        setBlock(doorX + (blacksmith ? -1 : 1), ground - 2, B.AIR);
+        const chestX = left + width - 2;
+        const chestY = ground - 2;
+        setBlock(chestX, chestY, B.CHEST);
+        setChestLoot(chestX, chestY, blacksmith ? [
+          ["iron_ingot", 2 + Math.floor(hash(left) * 3)],
+          [B.COAL, 3 + Math.floor(hash(left + 1) * 4)],
+          [hash(left + 2) > 0.66 ? "iron_sword" : "stone_pickaxe", 1]
+        ] : [
+          [B.PLANKS, 4 + Math.floor(hash(left) * 5)],
+          ["apple", 1 + Math.floor(hash(left + 3) * 3)],
+          ["stick", 2 + Math.floor(hash(left + 4) * 4)]
+        ]);
+        if (blacksmith) {
+          setBlock(left + 1, ground - 2, B.FURNACE);
+          setBlock(left + 2, ground - 2, B.CAMPFIRE);
+        }
+      }
+
+      function buildWell(cx, ground) {
+        setBlock(cx - 1, ground - 1, B.STONE);
+        setBlock(cx, ground - 1, B.WATER);
+        setBlock(cx + 1, ground - 1, B.STONE);
+        setBlock(cx - 1, ground - 2, B.LOG);
+        setBlock(cx + 1, ground - 2, B.LOG);
+        setBlock(cx, ground - 3, B.PLANKS);
+      }
+
+      function setChestLoot(x, y, entries) {
+        chestLoot.set(`${x},${y}`, entries.map(([item, count]) => makeStack(item, count)));
+      }
+
+      function clearSpawn() {
+        const h = heightMap[SPAWN_X];
+        for (let x = SPAWN_X - 4; x <= SPAWN_X + 4; x++) {
+          for (let y = h - 9; y < h; y++) {
+            if (getBlock(x, y) !== B.AIR) setBlock(x, y, B.AIR);
+          }
+          if (getBlock(x, h) === B.WATER) setBlock(x, h, B.GRASS);
+        }
+      }
+
+      function resetPlayer() {
+        const h = heightMap[SPAWN_X];
+        player.x = SPAWN_X + 0.5;
+        player.y = h - player.h - 0.05;
+        player.vx = 0;
+        player.vy = 0;
+        player.health = 100;
+        player.hunger = 100;
+        player.heat = 72;
+        player.xp = 0;
+        player.level = 1;
+        player.poison = 0;
+        player.grounded = false;
+        player.attack = 0;
+        camera.x = Math.max(0, player.x * TILE - window.innerWidth / 2);
+        camera.y = Math.max(0, player.y * TILE - window.innerHeight / 2);
+      }
+
+      function spawnSheep(x) {
+        const sx = Math.max(3, Math.min(WORLD_W - 4, Math.floor(x)));
+        const h = heightMap[sx];
+        entities.push({
+          type: "sheep",
+          x: sx + 0.5,
+          y: h - 0.95,
+          w: 0.92,
+          h: 0.78,
+          vx: hash(sx * 4) > 0.5 ? 0.024 : -0.024,
+          vy: 0,
+          health: 12,
+          grounded: false,
+          anim: hash(sx * 5) * 100,
+          attackCd: 0
+        });
+      }
+
+      function spawnCow(x) {
+        const sx = Math.max(3, Math.min(WORLD_W - 4, Math.floor(x)));
+        const h = heightMap[sx];
+        if (biomeMap[sx] === "desert" || biomeMap[sx] === "violet") return;
+        entities.push({
+          type: "cow",
+          x: sx + 0.5,
+          y: h - 1.12,
+          w: 1.08,
+          h: 0.98,
+          vx: hash(sx * 8) > 0.5 ? 0.02 : -0.02,
+          vy: 0,
+          health: 18,
+          grounded: false,
+          anim: hash(sx * 3) * 100,
+          attackCd: 0
+        });
+      }
+
+      function spawnChicken(x) {
+        const sx = Math.max(3, Math.min(WORLD_W - 4, Math.floor(x)));
+        const h = heightMap[sx];
+        if (biomeMap[sx] === "violet") return;
+        entities.push({
+          type: "chicken",
+          x: sx + 0.5,
+          y: h - 0.62,
+          w: 0.56,
+          h: 0.55,
+          vx: hash(sx * 10) > 0.5 ? 0.032 : -0.032,
+          vy: 0,
+          health: 7,
+          grounded: false,
+          anim: hash(sx * 9) * 100,
+          attackCd: 0
+        });
+      }
+
+      function spawnMonsterAt(type, x, y, violet = false) {
+        entities.push({
+          type,
+          violet,
+          x: x + 0.5,
+          y,
+          w: 0.72,
+          h: 1.55,
+          vx: 0,
+          vy: 0,
+          health: type === "skeleton" ? 18 : type === "creeper" ? 20 : 22,
+          grounded: false,
+          anim: 0,
+          attackCd: 900 + hash(x * 7) * 600,
+          fuse: 0
+        });
+      }
+
+      function spawnVioletHostiles() {
+        for (let x = 12; x < WORLD_W - 12; x += 9) {
+          if (biomeMap[x] !== "violet" || hash(x * 67) < 0.48) continue;
+          const y = heightMap[x] - 1.6;
+          spawnMonsterAt(hash(x * 12) > 0.45 ? "skeleton" : "zombie", x, y, true);
+        }
+      }
+
+      function spawnMonster(type) {
+        const side = hash(time * 100 + entities.length) > 0.5 ? -1 : 1;
+        const x = Math.floor(Math.max(5, Math.min(WORLD_W - 6, player.x + side * (16 + hash(time * 43) * 18))));
+        spawnMonsterAt(type, x, heightMap[x] - 1.6, biomeMap[x] === "violet");
+      }
+
+      function resize() {
+        const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        canvas.width = Math.floor(window.innerWidth * dpr);
+        canvas.height = Math.floor(window.innerHeight * dpr);
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.imageSmoothingEnabled = false;
+      }
+
+      function moveBody(body, step) {
+        body.x += body.vx * step;
+        if (body.vx > 0) {
+          const right = body.x + body.w / 2;
+          for (let y = Math.floor(body.y); y <= Math.floor(body.y + body.h - 0.001); y++) {
+            if (isSolid(right, y)) {
+              body.x = Math.floor(right) - body.w / 2 - 0.001;
+              body.vx = 0;
+              break;
+            }
+          }
+        } else if (body.vx < 0) {
+          const left = body.x - body.w / 2;
+          for (let y = Math.floor(body.y); y <= Math.floor(body.y + body.h - 0.001); y++) {
+            if (isSolid(left, y)) {
+              body.x = Math.floor(left) + 1 + body.w / 2 + 0.001;
+              body.vx = 0;
+              break;
+            }
+          }
+        }
+
+        body.y += body.vy * step;
+        body.grounded = false;
+        if (body.vy > 0) {
+          const bottom = body.y + body.h;
+          for (let x = Math.floor(body.x - body.w / 2); x <= Math.floor(body.x + body.w / 2); x++) {
+            if (isSolid(x, bottom)) {
+              body.y = Math.floor(bottom) - body.h - 0.001;
+              body.vy = 0;
+              body.grounded = true;
+              break;
+            }
+          }
+        } else if (body.vy < 0) {
+          for (let x = Math.floor(body.x - body.w / 2); x <= Math.floor(body.x + body.w / 2); x++) {
+            if (isSolid(x, body.y)) {
+              body.y = Math.floor(body.y) + 1.001;
+              body.vy = 0;
+              break;
+            }
+          }
+        }
+      }
+
+      function isNight() {
+        return worldClock % CYCLE_MS >= DAY_MS;
+      }
+
+      function nearbyBlock(id, radius = 3) {
+        const cx = Math.floor(player.x);
+        const cy = Math.floor(player.y + player.h / 2);
+        for (let y = cy - radius; y <= cy + radius; y++) {
+          for (let x = cx - radius; x <= cx + radius; x++) {
+            if (getBlock(x, y) === id) return true;
+          }
+        }
+        return false;
+      }
+
+      function warmthNearby(radius = 5) {
+        let warmth = 0;
+        const cx = Math.floor(player.x);
+        const cy = Math.floor(player.y + player.h / 2);
+        for (let y = cy - radius; y <= cy + radius; y++) {
+          for (let x = cx - radius; x <= cx + radius; x++) {
+            const id = getBlock(x, y);
+            if (id !== B.FURNACE && id !== B.CAMPFIRE) continue;
+            const dist = Math.max(1, Math.hypot(x + 0.5 - player.x, y + 0.5 - (player.y + 0.8)));
+            const lit = id === B.CAMPFIRE || furnace.burn > 0;
+            if (lit) warmth += (id === B.CAMPFIRE ? 26 : 18) / dist;
+          }
+        }
+        return warmth;
+      }
+
+      function updateTemperature(step, elapsed) {
+        const biome = biomeMap[Math.floor(player.x)] || "forest";
+        const underground = Math.max(0, Math.floor(player.y) - (heightMap[Math.floor(player.x)] || 0));
+        const inWater = getBlock(player.x, player.y + player.h * 0.6) === B.WATER;
+        let target = 68;
+        if (isNight()) target -= 22;
+        if (biome === "desert") target += isNight() ? -6 : 18;
+        if (underground > 4) target -= Math.min(24, underground * 1.2);
+        if (inWater) target -= 28;
+        target += warmthNearby();
+        player.heat += (target - player.heat) * Math.min(1, elapsed / 5200);
+        player.heat = Math.max(0, Math.min(100, player.heat));
+        if (player.heat < 18) damagePlayer(0.025 * step);
+        if (player.heat > 95) {
+          player.hunger = Math.max(0, player.hunger - 0.006 * step);
+          if (player.heat > 99) damagePlayer(0.018 * step);
+        }
+      }
+
+      function update(step, elapsed) {
+        const left = keys.a || keys.arrowleft;
+        const right = keys.d || keys.arrowright;
+        const jump = keys.w || keys.arrowup || keys[" "];
+        const sprint = keys.shift && player.hunger > 4;
+        const speed = sprint ? 0.118 : 0.084;
+
+        if (!inventoryOpen) {
+          if (gameMode === "creative") {
+            const creativeSpeed = keys.shift ? 0.18 : 0.12;
+            player.vx = (right ? creativeSpeed : 0) - (left ? creativeSpeed : 0);
+            player.vy = (jump ? -creativeSpeed : 0) + (keys.s || keys.arrowdown ? creativeSpeed : 0);
+            if (right && !left) player.facing = 1;
+            if (left && !right) player.facing = -1;
+            player.x = Math.max(1, Math.min(WORLD_W - 2, player.x + player.vx * step));
+            player.y = Math.max(1, Math.min(WORLD_H - 3, player.y + player.vy * step));
+            player.grounded = false;
+            player.health = 100;
+            player.hunger = 100;
+            player.heat = 72;
+            player.poison = 0;
+          } else
+          if (left && !right) {
+            player.vx = -speed;
+            player.facing = -1;
+          } else if (right && !left) {
+            player.vx = speed;
+            player.facing = 1;
+          } else {
+            player.vx *= 0.74;
+            if (Math.abs(player.vx) < 0.003) player.vx = 0;
+          }
+
+          if (jump && player.grounded && player.hunger > 1) {
+            player.vy = -0.74;
+            player.grounded = false;
+          }
+        } else {
+          player.vx *= 0.7;
+        }
+
+        if (gameMode !== "creative") {
+          player.vy = Math.min(MAX_FALL, player.vy + GRAVITY * step);
+          moveBody(player, step);
+        }
+        if (Math.abs(player.vx) > 0.01 && player.grounded) player.walk += step * 0.18;
+        player.attack = Math.max(0, player.attack - elapsed);
+        player.invuln = Math.max(0, player.invuln - elapsed);
+        if (gameMode !== "creative") {
+          player.hunger = Math.max(0, player.hunger - (sprint ? 0.008 : 0.002) * step);
+          if (player.hunger <= 0) damagePlayer(0.025 * step);
+          updateTemperature(step, elapsed);
+        }
+        updateMining(elapsed);
+        updatePoison(step, elapsed);
+        updateWeather(elapsed);
+
+        updateEntities(step, elapsed);
+        updateArrows(step, elapsed);
+        updateFurnace(elapsed);
+        sendPlayerState(elapsed);
+        lastAutoSave += elapsed;
+        if (lastAutoSave > 8000) {
+          lastAutoSave = 0;
+          saveCurrentWorld(false);
+        }
+
+        camera.x += (player.x * TILE - window.innerWidth / 2 - camera.x) * 0.09;
+        camera.y += (player.y * TILE - window.innerHeight / 2 - camera.y) * 0.09;
+        camera.x = Math.max(0, Math.min(WORLD_W * TILE - window.innerWidth, camera.x));
+        camera.y = Math.max(0, Math.min(WORLD_H * TILE - window.innerHeight, camera.y));
+
+        const oldCycle = Math.floor(worldClock / CYCLE_MS);
+        time += elapsed * 0.001;
+        worldClock += elapsed;
+        day = Math.floor(worldClock / CYCLE_MS) + 1;
+        if (Math.floor(worldClock / CYCLE_MS) !== oldCycle) {
+          entities = entities.filter((e) => e.type === "sheep");
+          arrows = [];
+        }
+        if (player.y > WORLD_H + 5) damagePlayer(100);
+        if (player.health <= 0) showDeath();
+      }
+
+      function updatePoison(step, elapsed) {
+        if (getBlock(player.x, player.y + player.h * 0.72) === B.TOXIC && settings.danger) player.poison = Math.max(player.poison, 5200);
+        if (player.poison > 0) {
+          player.poison = Math.max(0, player.poison - elapsed);
+          damagePlayer(0.018 * step);
+        }
+      }
+
+      function updateWeather(elapsed) {
+        if (!settings.weather) {
+          weather.type = "clear";
+          return;
+        }
+        weather.timer -= elapsed;
+        if (weather.timer > 0) return;
+        const roll = hash(time * 31 + day * 13);
+        weather.type = roll > 0.72 ? "snow" : roll > 0.43 ? "rain" : "clear";
+        weather.timer = weather.type === "clear" ? 28000 + roll * 26000 : 22000 + roll * 22000;
+        weather.wind = -0.5 + hash(time * 8) * 1;
+      }
+
+      function addXp(amount) {
+        player.xp += amount;
+        while (player.xp >= xpToNext()) {
+          player.xp -= xpToNext();
+          player.level++;
+          player.health = Math.min(100, player.health + 8);
+          toast(`Seviye ${player.level}`);
+        }
+      }
+
+      function xpToNext() {
+        return 20 + player.level * 8;
+      }
+
+      function updateEntities(step, elapsed) {
+        monsterClock += elapsed;
+        if (gameMode !== "creative" && isNight() && monsterClock > 2300) {
+          const hostileCount = entities.filter((e) => !["sheep", "cow", "chicken"].includes(e.type)).length;
+          if (hostileCount < 10) {
+            const roll = hash(time * 15);
+            spawnMonster(roll > 0.78 ? "creeper" : roll > 0.52 ? "skeleton" : "zombie");
+          }
+          monsterClock = 0;
+        }
+
+        for (const e of entities) {
+          e.anim += step;
+          e.hurt = Math.max(0, (e.hurt || 0) - elapsed);
+          if (["sheep", "cow", "chicken"].includes(e.type)) {
+            e.vx += Math.sin(e.anim * 0.035 + e.x) * 0.0012;
+            const cap = e.type === "chicken" ? 0.052 : 0.035;
+            e.vx = Math.max(-cap, Math.min(cap, e.vx));
+            if (e.grounded && hash2(Math.floor(e.x), Math.floor(e.anim), 22) > 0.992) e.vy = -0.38;
+          } else {
+            const dx = player.x - e.x;
+            const dist = Math.abs(dx);
+            if (e.type === "zombie") {
+              e.vx = Math.sign(dx) * 0.052;
+              if (dist < 1.25 && Math.abs(player.y - e.y) < 1.5 && e.attackCd <= 0) {
+                damagePlayer(10);
+                e.attackCd = 850;
+              }
+            } else if (e.type === "creeper") {
+              e.vx = Math.sign(dx) * (e.fuse > 0 ? 0.035 : 0.045);
+              if (dist < 2.4 && Math.abs(player.y - e.y) < 2.2) e.fuse += elapsed;
+              else e.fuse = Math.max(0, e.fuse - elapsed * 0.9);
+              if (e.fuse >= 1450) explodeCreeper(e);
+            } else {
+              if (dist < 5) e.vx = -Math.sign(dx) * 0.035;
+              else if (dist > 7.5) e.vx = Math.sign(dx) * 0.043;
+              else e.vx *= 0.78;
+              if (dist < 9.5 && Math.abs(player.y - e.y) < 4 && e.attackCd <= 0) {
+                shootArrow(e);
+                e.attackCd = 1450;
+              }
+            }
+            e.attackCd -= elapsed;
+            if (e.grounded && Math.abs(dx) < 4 && hash2(Math.floor(e.x), Math.floor(time * 20), 4) > 0.985) e.vy = -0.58;
+          }
+          e.vy = Math.min(MAX_FALL, e.vy + GRAVITY * step);
+          moveBody(e, step);
+        }
+        entities = entities.filter((e) => e.health > 0 && e.y < WORLD_H + 4);
+      }
+
+      function explodeCreeper(creeper) {
+        const cx = Math.floor(creeper.x);
+        const cy = Math.floor(creeper.y + creeper.h * 0.55);
+        const radius = 3.2;
+        for (let y = cy - 4; y <= cy + 4; y++) {
+          for (let x = cx - 4; x <= cx + 4; x++) {
+            const dist = Math.hypot(x + 0.5 - creeper.x, y + 0.5 - (creeper.y + 0.75));
+            if (dist <= radius + hash2(x, y, 501) * 0.55 && getBlock(x, y) !== B.WATER) setBlock(x, y, B.AIR);
+          }
+        }
+        const pd = Math.hypot(player.x - creeper.x, player.y + 0.8 - (creeper.y + 0.8));
+        if (pd < 5) damagePlayer(Math.max(8, 34 - pd * 6));
+        creeper.health = 0;
+        toast("Creeper patladı");
+      }
+
+      function shootArrow(skeleton) {
+        const fromX = skeleton.x + Math.sign(player.x - skeleton.x) * 0.45;
+        const fromY = skeleton.y + 0.45;
+        const toX = player.x;
+        const toY = player.y + 0.55;
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const len = Math.max(0.01, Math.hypot(dx, dy));
+        arrows.push({
+          x: fromX,
+          y: fromY,
+          vx: (dx / len) * 0.21,
+          vy: (dy / len) * 0.21,
+          life: 2600,
+          rot: Math.atan2(dy, dx)
+        });
+      }
+
+      function updateArrows(step, elapsed) {
+        for (const a of arrows) {
+          a.x += a.vx * step;
+          a.y += a.vy * step;
+          a.vy += 0.003 * step;
+          a.life -= elapsed;
+          a.rot = Math.atan2(a.vy, a.vx);
+          if (isSolid(a.x, a.y)) a.life = 0;
+          if (a.owner === "player") {
+            for (const e of entities) {
+              if (e.health <= 0 || ["sheep", "cow", "chicken"].includes(e.type)) continue;
+              const hit = a.x > e.x - e.w / 2 && a.x < e.x + e.w / 2 && a.y > e.y && a.y < e.y + e.h;
+              if (hit) {
+                e.health -= a.damage || 9;
+                e.hurt = 180;
+                e.vx += Math.sign(e.x - player.x || 1) * 0.13;
+                a.life = 0;
+                if (e.health <= 0) {
+                  if (e.type === "skeleton") addToInventory("bone", 1);
+                  if (e.type === "creeper") addToInventory("gunpowder", 1);
+                  addXp(e.type === "creeper" ? 10 : 8);
+                  renderAllUi();
+                }
+                break;
+              }
+            }
+          } else {
+            const hitPlayer = a.x > player.x - player.w / 2 && a.x < player.x + player.w / 2 && a.y > player.y && a.y < player.y + player.h;
+            if (hitPlayer && player.invuln <= 0) {
+              damagePlayer(9);
+              a.life = 0;
+            }
+          }
+        }
+        arrows = arrows.filter((a) => a.life > 0);
+      }
+
+      function updateFurnace(elapsed) {
+        const recipe = furnace.input ? smeltRecipes[furnace.input.item] : null;
+        const outputOk = recipe && (!furnace.output || (furnace.output.item === recipe.out && furnace.output.count < maxStack(recipe.out)));
+        if (furnace.burn <= 0 && recipe && outputOk && furnace.fuel && fuelValues[furnace.fuel.item]) {
+          furnace.burn = fuelValues[furnace.fuel.item];
+          furnace.burnMax = furnace.burn;
+          furnace.fuel.count--;
+          if (furnace.fuel.count <= 0) furnace.fuel = null;
+        }
+        if (furnace.burn > 0) furnace.burn = Math.max(0, furnace.burn - elapsed);
+        if (recipe && outputOk && furnace.burn > 0) {
+          furnace.target = recipe.time;
+          furnace.progress += elapsed;
+          if (furnace.progress >= recipe.time) {
+            furnace.input.count--;
+            if (furnace.input.count <= 0) furnace.input = null;
+            if (furnace.output) furnace.output.count++;
+            else furnace.output = makeStack(recipe.out, 1);
+            furnace.progress = 0;
+          }
+        } else {
+          furnace.progress = Math.max(0, furnace.progress - elapsed * 0.5);
+        }
+      }
+
+      function damagePlayer(amount) {
+        if (gameMode === "creative") return;
+        if (player.invuln > 0 && amount < 100) return;
+        const armor = armorSlot ? itemInfo(armorSlot.item).armor || 0 : 0;
+        player.health = Math.max(0, player.health - Math.max(1, amount - armor * 1.5));
+        player.invuln = 380;
+      }
+
+      function showDeath() {
+        messageEl.classList.remove("hidden");
+        messageEl.querySelector("h1").textContent = "Bayıldın";
+        messageEl.querySelector("p").textContent = "R ile yeni dünya kurabilirsin.";
+      }
+
+      function worldMouse() {
+        return {
+          x: Math.floor((mouse.x + camera.x) / TILE),
+          y: Math.floor((mouse.y + camera.y) / TILE),
+          fx: (mouse.x + camera.x) / TILE,
+          fy: (mouse.y + camera.y) / TILE
+        };
+      }
+
+      function inReach(x, y, reach = 5.1) {
+        return Math.hypot(x + 0.5 - player.x, y + 0.5 - (player.y + 0.8)) <= reach;
+      }
+
+      function overlapsPlayer(x, y) {
+        return x < player.x + player.w / 2 && x + 1 > player.x - player.w / 2 && y < player.y + player.h && y + 1 > player.y;
+      }
+
+      function selectedStack() {
+        return inventory[selected];
+      }
+
+      function heldPickLevel() {
+        const stack = selectedStack();
+        const info = stack ? itemInfo(stack.item) : null;
+        return info?.tool === "pick" ? info.level : 0;
+      }
+
+      function weaponDamage() {
+        const stack = selectedStack();
+        return stack ? itemInfo(stack.item).damage || 3 : 3;
+      }
+
+      function hitEntity(fx, fy) {
+        let target = null;
+        for (const e of entities) {
+          if (fx >= e.x - e.w / 2 && fx <= e.x + e.w / 2 && fy >= e.y && fy <= e.y + e.h) target = e;
+        }
+        if (!target || Math.hypot(target.x - player.x, target.y - player.y) > 4.5) return false;
+        target.health -= weaponDamage();
+        target.vx += Math.sign(target.x - player.x || 1) * 0.18;
+        target.vy = -0.23;
+        target.hurt = 180;
+        player.attack = 220;
+        if (target.health <= 0) {
+          if (target.type === "sheep") {
+            addToInventory("wool", 1);
+            addToInventory("raw_mutton", 1 + Math.floor(Math.random() * 2));
+            addXp(4);
+          } else if (target.type === "cow") {
+            addToInventory("raw_beef", 1 + Math.floor(Math.random() * 2));
+            addToInventory("leather", 1);
+            addXp(5);
+          } else if (target.type === "chicken") {
+            addToInventory("raw_chicken", 1);
+            addToInventory("feather", 1 + Math.floor(Math.random() * 2));
+            addXp(3);
+          } else if (target.type === "skeleton") {
+            addToInventory("bone", 1 + Math.floor(Math.random() * 2));
+            if (Math.random() > 0.45) addToInventory("stick", 1);
+            addXp(9);
+          } else if (target.type === "creeper") {
+            addToInventory("gunpowder", 1 + Math.floor(Math.random() * 2));
+            addXp(10);
+          } else {
+            if (Math.random() > 0.55) addToInventory("apple", 1);
+            addXp(8);
+          }
+          renderAllUi();
+        }
+        return true;
+      }
+
+      function mineOrUse(button) {
+        const target = worldMouse();
+        if (!inReach(target.x, target.y)) return;
+
+        if (button === 0) {
+          if (hitEntity(target.fx, target.fy)) return;
+          startMining(target.x, target.y);
+          return;
+        }
+
+        if (button === 2) {
+          const clicked = getBlock(target.x, target.y);
+          const stack = selectedStack();
+          if (stack?.item === "bow") {
+            shootPlayerArrow(target.fx, target.fy);
+            return;
+          }
+          if (stack && handleBucketUse(stack, target, clicked)) return;
+          if (clicked === B.CHEST) {
+            lootChest(target.x, target.y);
+            return;
+          }
+          if (clicked === B.BED) {
+            if (isNight()) {
+              worldClock = Math.ceil(worldClock / CYCLE_MS) * CYCLE_MS;
+              day = Math.floor(worldClock / CYCLE_MS) + 1;
+              player.health = Math.min(100, player.health + 25);
+              player.hunger = Math.max(0, player.hunger - 8);
+              entities = entities.filter((e) => e.type === "sheep");
+              arrows = [];
+              toast("Sabah oldu");
+            } else {
+              toast("Sadece gece uyunur");
+            }
+            return;
+          }
+          if (stack && itemInfo(stack.item).food) {
+            eatSelected();
+            return;
+          }
+          if (stack && blocks[stack.item] && clicked === B.AIR && !overlapsPlayer(target.x, target.y)) {
+            setBlock(target.x, target.y, stack.item);
+            if (gameMode !== "creative") {
+              stack.count--;
+              if (stack.count <= 0) inventory[selected] = null;
+            }
+            renderAllUi();
+          }
+        }
+      }
+
+      function blockBreakTime(id) {
+        if (!id || id === B.WATER) return Infinity;
+        const base = {
+          [B.LEAVES]: 420,
+          [B.DIRT]: 620,
+          [B.GRASS]: 680,
+          [B.SAND]: 560,
+          [B.CACTUS]: 520,
+          [B.LOG]: 980,
+          [B.PLANKS]: 820,
+          [B.CHEST]: 900,
+          [B.TABLE]: 900,
+          [B.BED]: 720,
+          [B.CAMPFIRE]: 520,
+          [B.STONE]: 1400,
+          [B.COAL]: 1500,
+          [B.IRON]: 1850,
+          [B.DIAMOND]: 2300,
+          [B.FURNACE]: 1450,
+          [B.BRICKS]: 1500,
+          [B.GLASS]: 650
+        }[id] || 900;
+        const info = selectedStack() ? itemInfo(selectedStack().item) : null;
+        const pick = info?.tool === "pick" ? info.level : 0;
+        const axe = info?.tool === "axe" ? info.level : 0;
+        const needed = blocks[id].needPick || 0;
+        const toolBonus = pick > 0 && needed > 0 ? 1 + pick * 0.38 : 1;
+        const woodBonus = axe > 0 && [B.LOG, B.PLANKS, B.CHEST, B.TABLE, B.BED].includes(id) ? 1 + axe * 0.45 : 1;
+        return base / Math.max(toolBonus, woodBonus);
+      }
+
+      function startMining(x, y) {
+        const id = getBlock(x, y);
+        if (!id || id === B.WATER) {
+          mining.active = false;
+          return;
+        }
+        if (gameMode === "creative") {
+          mining = { active: true, x, y, id, progress: 1, total: 1 };
+          finishMining();
+          player.attack = 120;
+          return;
+        }
+        const needed = blocks[id].needPick || 0;
+        if (heldPickLevel() < needed) {
+          toast(needed > 1 ? "Daha iyi kazma lazım" : "Kazma lazım");
+          mining.active = false;
+          return;
+        }
+        if (mining.active && mining.x === x && mining.y === y && mining.id === id) return;
+        mining = { active: true, x, y, id, progress: 0, total: blockBreakTime(id) };
+      }
+
+      function updateMining(elapsed) {
+        if (!mouseButtons.left || inventoryOpen || !mining.active) return;
+        const target = worldMouse();
+        if (!inReach(target.x, target.y) || target.x !== mining.x || target.y !== mining.y || getBlock(target.x, target.y) !== mining.id) {
+          startMining(target.x, target.y);
+          return;
+        }
+        mining.progress += elapsed;
+        player.attack = Math.max(player.attack, 90);
+        if (mining.progress >= mining.total) finishMining();
+      }
+
+      function finishMining() {
+        const id = getBlock(mining.x, mining.y);
+        if (id !== mining.id) {
+          mining.active = false;
+          return;
+        }
+        setBlock(mining.x, mining.y, B.AIR);
+        if (id === B.CHEST) chestLoot.delete(`${mining.x},${mining.y}`);
+        if (gameMode === "creative") {
+          mining.active = false;
+          renderAllUi();
+          return;
+        }
+        const drop = blocks[id].drop;
+        if (drop != null) addToInventory(drop, 1);
+        else if (id === B.LEAVES) {
+          if (Math.random() > 0.75) addToInventory("stick", 1);
+          if (Math.random() > 0.9) addToInventory("apple", 1);
+        }
+        if (id === B.CACTUS && Math.random() > 0.55) addToInventory("cactus_fruit", 1);
+        mining.active = false;
+        renderAllUi();
+        if (mouseButtons.left) startMining(worldMouse().x, worldMouse().y);
+      }
+
+      function lootChest(x, y) {
+        const key = `${x},${y}`;
+        const loot = chestLoot.get(key);
+        if (!loot || !loot.length) {
+          toast("Sandık boş");
+          return;
+        }
+        let moved = 0;
+        for (const stack of loot) {
+          const before = stack.count;
+          addToInventory(stack.item, stack.count);
+          moved += before;
+        }
+        chestLoot.delete(key);
+        toast(`Sandıktan ${moved} eşya aldın`);
+        renderAllUi();
+      }
+
+      function eatSelected() {
+        const stack = selectedStack();
+        if (!stack || !itemInfo(stack.item).food) return;
+        player.hunger = Math.min(100, player.hunger + itemInfo(stack.item).food);
+        player.health = Math.min(100, player.health + (stack.item === "cooked_mutton" ? 6 : 1));
+        stack.count--;
+        if (stack.count <= 0) inventory[selected] = null;
+        renderAllUi();
+      }
+
+      function toast(text) {
+        quickMessageEl.textContent = text;
+        quickMessageEl.classList.add("show");
+        messageTimer = 1700;
+      }
+
+      function updateToast(elapsed) {
+        if (messageTimer > 0) {
+          messageTimer -= elapsed;
+          if (messageTimer <= 0) quickMessageEl.classList.remove("show");
+        }
+      }
+
+      function shootPlayerArrow(fx, fy) {
+        if (!removeFromInventory("arrow", 1)) {
+          toast("Ok yok");
+          return;
+        }
+        const fromX = player.x + player.facing * 0.55;
+        const fromY = player.y + 0.6;
+        const dx = fx - fromX;
+        const dy = fy - fromY;
+        const len = Math.max(0.01, Math.hypot(dx, dy));
+        arrows.push({
+          x: fromX,
+          y: fromY,
+          vx: (dx / len) * 0.34,
+          vy: (dy / len) * 0.34,
+          life: 2200,
+          rot: Math.atan2(dy, dx),
+          owner: "player",
+          damage: 11
+        });
+        player.attack = 220;
+        renderAllUi();
+      }
+
+      function handleBucketUse(stack, target, clicked) {
+        if (stack.item === "bucket" && (clicked === B.WATER || clicked === B.TOXIC)) {
+          stack.item = clicked === B.WATER ? "water_bucket" : "toxic_bucket";
+          setBlock(target.x, target.y, B.AIR);
+          renderAllUi();
+          return true;
+        }
+        if ((stack.item === "water_bucket" || stack.item === "toxic_bucket") && clicked === B.AIR) {
+          setBlock(target.x, target.y, stack.item === "water_bucket" ? B.WATER : B.TOXIC);
+          stack.item = "bucket";
+          renderAllUi();
+          return true;
+        }
+        return false;
+      }
+
+      function initMultiplayer() {
+        if (!["http:", "https:"].includes(location.protocol)) return;
+        const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+        const socket = new WebSocket(`${wsProtocol}//${location.host}`);
+        multiplayer.socket = socket;
+        socket.addEventListener("open", () => {
+          multiplayer.enabled = true;
+          toast("Multiplayer bağlı");
+        });
+        socket.addEventListener("message", (event) => {
+          let msg;
+          try {
+            msg = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          if (msg.type === "init") {
+            multiplayer.id = msg.id;
+            if (Number.isFinite(msg.seed)) {
+              seed = msg.seed;
+              multiplayer.applyingRemoteBlock = true;
+              generateWorld();
+              multiplayer.applyingRemoteBlock = false;
+            }
+            for (const change of msg.blocks || []) applyRemoteBlock(change);
+            toast("Aynı dünyaya bağlandın");
+          } else if (msg.type === "peer") {
+            if (msg.id !== multiplayer.id) multiplayer.peers.set(msg.id, msg.player);
+          } else if (msg.type === "leave") {
+            multiplayer.peers.delete(msg.id);
+          } else if (msg.type === "block") {
+            applyRemoteBlock(msg);
+          } else if (msg.type === "reset" && Number.isFinite(msg.seed)) {
+            seed = msg.seed;
+            multiplayer.peers.clear();
+            multiplayer.applyingRemoteBlock = true;
+            generateWorld();
+            multiplayer.applyingRemoteBlock = false;
+          }
+        });
+        socket.addEventListener("close", () => {
+          multiplayer.enabled = false;
+          multiplayer.peers.clear();
+          toast("Multiplayer bağlantısı koptu");
+        });
+      }
+
+      function applyRemoteBlock(change) {
+        if (!change || !Number.isFinite(change.x) || !Number.isFinite(change.y) || !Number.isFinite(change.id)) return;
+        multiplayer.applyingRemoteBlock = true;
+        setBlock(change.x, change.y, change.id);
+        multiplayer.applyingRemoteBlock = false;
+      }
+
+      function sendBlockChange(x, y, id) {
+        if (multiplayer.applyingRemoteBlock || !multiplayer.enabled || !multiplayer.socket || multiplayer.socket.readyState !== WebSocket.OPEN) return;
+        multiplayer.socket.send(JSON.stringify({ type: "block", x, y, id }));
+      }
+
+      function sendPlayerState(elapsed) {
+        if (!multiplayer.enabled || !multiplayer.socket || multiplayer.socket.readyState !== WebSocket.OPEN) return;
+        multiplayer.lastSend += elapsed;
+        if (multiplayer.lastSend < 90) return;
+        multiplayer.lastSend = 0;
+        multiplayer.socket.send(JSON.stringify({
+          type: "player",
+          player: {
+            x: player.x,
+            y: player.y,
+            facing: player.facing,
+            health: player.health,
+            held: selectedStack()?.item || null
+          }
+        }));
+      }
+
+      function activeCraftSize() {
+        return nearbyBlock(B.TABLE, 3) ? 3 : 2;
+      }
+
+      function syncCraftSize() {
+        const next = activeCraftSize();
+        if (next === craftSize) return;
+        dumpCraftGrid();
+        craftSize = next;
+        craftSlots = Array.from({ length: craftSize * craftSize }, () => null);
+      }
+
+      function dumpCraftGrid() {
+        for (const stack of craftSlots) returnStack(stack);
+        craftSlots = Array.from({ length: craftSize * craftSize }, () => null);
+      }
+
+      function craftMatch() {
+        syncCraftSize();
+        const filled = craftSlots
+          .map((slot, index) => slot ? { slot, index, row: Math.floor(index / craftSize), col: index % craftSize } : null)
+          .filter(Boolean);
+        if (!filled.length) return null;
+
+        for (const recipe of recipes) {
+          if (recipe.size > craftSize) continue;
+          if (recipe.shapeless) {
+            const need = new Map(Object.entries(recipe.in).map(([item, count]) => [normalizeItem(item), count]));
+            const counts = new Map();
+            for (const cell of filled) {
+              counts.set(cell.slot.item, (counts.get(cell.slot.item) || 0) + cell.slot.count);
+            }
+            let ok = counts.size === need.size;
+            for (const [item, count] of need) {
+              if ((counts.get(item) || 0) !== count) ok = false;
+            }
+            if (ok) return { recipe };
+            continue;
+          }
+
+          const minR = Math.min(...filled.map((c) => c.row));
+          const minC = Math.min(...filled.map((c) => c.col));
+          const maxR = Math.max(...filled.map((c) => c.row));
+          const maxC = Math.max(...filled.map((c) => c.col));
+          const pattern = recipe.pattern;
+          const ph = pattern.length;
+          const pw = Math.max(...pattern.map((row) => row.length));
+          if (maxR - minR + 1 !== ph || maxC - minC + 1 !== pw) continue;
+
+          let ok = true;
+          for (let r = 0; r < ph; r++) {
+            for (let c = 0; c < pw; c++) {
+              const symbol = (pattern[r][c] || " ");
+              const slotIndex = (minR + r) * craftSize + minC + c;
+              const stack = craftSlots[slotIndex];
+              if (symbol === " ") {
+                if (stack) ok = false;
+              } else if (!stack || stack.item !== normalizeItem(recipe.key[symbol])) {
+                ok = false;
+              }
+            }
+          }
+          if (ok) return { recipe };
+        }
+        return null;
+      }
+
+      function normalizeItem(item) {
+        return /^-?\d+$/.test(String(item)) ? Number(item) : item;
+      }
+
+      function recipeIngredients(recipe) {
+        const counts = new Map();
+        if (recipe.shapeless) {
+          for (const [item, count] of Object.entries(recipe.in)) {
+            counts.set(normalizeItem(item), count);
+          }
+        } else {
+          for (const row of recipe.pattern) {
+            for (const symbol of row) {
+              if (symbol === " ") continue;
+              const item = normalizeItem(recipe.key[symbol]);
+              counts.set(item, (counts.get(item) || 0) + 1);
+            }
+          }
+        }
+        return counts;
+      }
+
+      function inventoryCount(item) {
+        return inventory.reduce((sum, slot) => sum + (slot?.item === item ? slot.count : 0), 0);
+      }
+
+      function canCraftRecipe(recipe) {
+        if (recipe.size > activeCraftSize()) return false;
+        for (const [item, count] of recipeIngredients(recipe)) {
+          if (inventoryCount(item) < count) return false;
+        }
+        return canAddToInventory(recipe.out, recipe.count);
+      }
+
+      function removeFromInventory(item, count) {
+        let remaining = count;
+        for (let i = 0; i < inventory.length && remaining > 0; i++) {
+          const slot = inventory[i];
+          if (!slot || slot.item !== item) continue;
+          const take = Math.min(slot.count, remaining);
+          slot.count -= take;
+          remaining -= take;
+          if (slot.count <= 0) inventory[i] = null;
+        }
+        return remaining <= 0;
+      }
+
+      function craftRecipeFromInventory(recipe) {
+        if (!canCraftRecipe(recipe)) {
+          toast(recipe.size > activeCraftSize() ? "Crafting table yakınına geç" : "Malzeme eksik");
+          return;
+        }
+        for (const [item, count] of recipeIngredients(recipe)) removeFromInventory(item, count);
+        addToInventory(recipe.out, recipe.count);
+        toast(`${itemName(recipe.out)} üretildi`);
+        renderAllUi();
+      }
+
+      function ingredientText(recipe) {
+        return [...recipeIngredients(recipe)]
+          .map(([item, count]) => `${itemName(item)} x${count}`)
+          .join(", ");
+      }
+
+      function consumeCraftGrid() {
+        for (let i = 0; i < craftSlots.length; i++) {
+          if (!craftSlots[i]) continue;
+          craftSlots[i].count--;
+          if (craftSlots[i].count <= 0) craftSlots[i] = null;
+        }
+      }
+
+      function canAcceptHeld(target, item) {
+        if (target.type === "armor") return item === "iron_armor" || item === "diamond_armor";
+        if (target.type === "furnaceFuel") return !!fuelValues[item];
+        if (target.type === "furnaceInput") return !!smeltRecipes[item];
+        if (target.type === "furnaceOutput" || target.type === "craftOutput") return false;
+        return true;
+      }
+
+      function getSlot(target) {
+        if (target.type === "inv") return inventory[target.index];
+        if (target.type === "craft") return craftSlots[target.index];
+        if (target.type === "armor") return armorSlot;
+        if (target.type === "furnaceInput") return furnace.input;
+        if (target.type === "furnaceFuel") return furnace.fuel;
+        if (target.type === "furnaceOutput") return furnace.output;
+        return null;
+      }
+
+      function setSlot(target, stack) {
+        if (target.type === "inv") inventory[target.index] = stack;
+        if (target.type === "craft") craftSlots[target.index] = stack;
+        if (target.type === "armor") armorSlot = stack;
+        if (target.type === "furnaceInput") furnace.input = stack;
+        if (target.type === "furnaceFuel") furnace.fuel = stack;
+        if (target.type === "furnaceOutput") furnace.output = stack;
+      }
+
+      function handleSlot(target, rightClick = false) {
+        if (target.type === "craftOutput") {
+          const match = craftMatch();
+          if (!match) return;
+          const out = makeStack(match.recipe.out, match.recipe.count);
+          if (!canAddToInventory(out.item, out.count)) {
+            toast("Envanter dolu");
+            return;
+          }
+          consumeCraftGrid();
+          addToInventory(out.item, out.count);
+          toast(`${itemName(out.item)} üretildi`);
+          renderAllUi();
+          return;
+        }
+
+        if (target.type === "furnaceOutput") {
+          const slot = getSlot(target);
+          if (!slot) return;
+          if (!canAddToInventory(slot.item, slot.count)) {
+            toast("Envanter dolu");
+            return;
+          }
+          addToInventory(slot.item, slot.count);
+          setSlot(target, null);
+          renderAllUi();
+          return;
+        }
+
+        if (rightClick) {
+          handleRightSlot(target);
+          renderAllUi();
+          return;
+        }
+
+        const slot = getSlot(target);
+        if (!heldStack) {
+          if (!slot) return;
+          pickUpSlot(target, slot.count);
+          renderAllUi();
+          return;
+        }
+
+        if (!canAcceptHeld(target, heldStack.item)) return;
+        if (!slot) {
+          placeHeld(target, target.type === "craft" ? 1 : heldStack.count);
+          renderAllUi();
+          return;
+        }
+
+        if (slot.item === heldStack.item && slot.count < maxStack(slot.item)) {
+          mergeHeldInto(target, target.type === "craft" ? 1 : heldStack.count);
+          renderAllUi();
+          return;
+        }
+
+        swapHeldWith(target);
+        renderAllUi();
+      }
+
+      function handleRightSlot(target) {
+        const slot = getSlot(target);
+        if (!heldStack) {
+          if (slot) pickUpSlot(target, Math.ceil(slot.count / 2));
+          return;
+        }
+        if (!canAcceptHeld(target, heldStack.item)) return;
+        if (!slot) {
+          placeHeld(target, 1);
+        } else if (slot.item === heldStack.item && slot.count < maxStack(slot.item)) {
+          mergeHeldInto(target, 1);
+        }
+      }
+
+      function pickUpSlot(target, amount) {
+        const slot = getSlot(target);
+        if (!slot) return;
+        const move = Math.min(amount, slot.count);
+        heldStack = makeStack(slot.item, move);
+        slot.count -= move;
+        if (slot.count <= 0) setSlot(target, null);
+      }
+
+      function placeHeld(target, amount) {
+        if (!heldStack) return;
+        const move = Math.min(amount, heldStack.count, maxStack(heldStack.item));
+        setSlot(target, makeStack(heldStack.item, move));
+        heldStack.count -= move;
+        if (heldStack.count <= 0) heldStack = null;
+      }
+
+      function mergeHeldInto(target, amount) {
+        const slot = getSlot(target);
+        if (!slot || !heldStack || slot.item !== heldStack.item) return;
+        const move = Math.min(amount, heldStack.count, maxStack(slot.item) - slot.count);
+        slot.count += move;
+        heldStack.count -= move;
+        if (heldStack.count <= 0) heldStack = null;
+      }
+
+      function swapHeldWith(target) {
+        const slot = getSlot(target);
+        if (!slot || !heldStack || !canAcceptHeld(target, heldStack.item)) return;
+        if (target.type === "armor" && slot.item !== "iron_armor" && slot.item !== "diamond_armor") return;
+        const swap = cloneStack(slot);
+        setSlot(target, heldStack);
+        heldStack = swap;
+      }
+
+      function closeInventory() {
+        dumpCraftGrid();
+        returnStack(heldStack);
+        heldStack = null;
+        inventoryOpen = false;
+        invPanel.classList.add("hidden");
+        renderAllUi();
+      }
+
+      function toggleInventory() {
+        if (inventoryOpen) {
+          closeInventory();
+        } else {
+          started = true;
+          messageEl.classList.add("hidden");
+          inventoryOpen = true;
+          syncCraftSize();
+          invPanel.classList.remove("hidden");
+          renderAllUi();
+        }
+      }
+
+      function drawSky() {
+        const phase = daylightLevel();
+        const mix = phase;
+        const lerp = (a, b) => Math.round(a + (b - a) * mix);
+        const top = [lerp(10, 83), lerp(17, 168), lerp(31, 221)];
+        const bottom = [lerp(29, 182), lerp(42, 220), lerp(61, 237)];
+        const grad = ctx.createLinearGradient(0, 0, 0, window.innerHeight);
+        grad.addColorStop(0, `rgb(${top.join(",")})`);
+        grad.addColorStop(1, `rgb(${bottom.join(",")})`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+        const sunPath = cycleProgress();
+        const sunX = sunPath * window.innerWidth;
+        const sunY = 118 + Math.sin(sunPath * Math.PI * 2) * 76;
+        ctx.fillStyle = !isNight() ? "#ffe08a" : "#d7ddff";
+        ctx.beginPath();
+        ctx.arc(sunX, sunY, 25, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = !isNight() ? "rgba(255,255,255,0.34)" : "rgba(190,205,255,0.16)";
+        for (let i = 0; i < 5; i++) {
+          const x = ((i * 220 - camera.x * 0.12) % (window.innerWidth + 260)) - 120;
+          const y = 84 + i * 22;
+          ctx.fillRect(x, y, 74, 10);
+          ctx.fillRect(x + 24, y - 8, 76, 12);
+          ctx.fillRect(x + 82, y + 3, 44, 8);
+        }
+
+        ctx.fillStyle = "rgba(40, 72, 76, 0.25)";
+        for (let i = 0; i < 8; i++) {
+          const x = ((i * 340 - camera.x * 0.22) % (window.innerWidth + 420)) - 210;
+          const y = window.innerHeight - 180 - (i % 3) * 16 + camera.y * 0.04;
+          ctx.beginPath();
+          ctx.moveTo(x, window.innerHeight);
+          ctx.lineTo(x + 160, y);
+          ctx.lineTo(x + 340, window.innerHeight);
+          ctx.fill();
+        }
+      }
+
+      function drawBlock(id, sx, sy, wx, wy) {
+        const b = blocks[id];
+        if (!b || id === B.AIR) return;
+        if (id !== B.CAMPFIRE) {
+          ctx.fillStyle = b.color;
+          ctx.fillRect(sx, sy, TILE, TILE);
+        }
+
+        if (id === B.GRASS) {
+          ctx.fillStyle = "#72ca5b";
+          ctx.fillRect(sx, sy, TILE, 8);
+          ctx.fillStyle = "#38652e";
+          for (let i = 0; i < 6; i++) ctx.fillRect(sx + i * 6 + Math.floor(hash2(wx, wy, i) * 3), sy + 6, 3, 6);
+          drawPebbles(sx, sy, wx, wy, "#6b4228");
+        } else if (id === B.VIOLET_GRASS) {
+          ctx.fillStyle = "#8a58c7";
+          ctx.fillRect(sx, sy, TILE, 9);
+          ctx.fillStyle = "#3a2361";
+          for (let i = 0; i < 7; i++) ctx.fillRect(sx + i * 5 + Math.floor(hash2(wx, wy, i) * 3), sy + 6, 3, 7);
+          drawPebbles(sx, sy, wx, wy, "#2d223d");
+        } else if (id === B.DIRT) {
+          drawPebbles(sx, sy, wx, wy, "#5e3a26");
+          drawPebbles(sx, sy, wx + 3, wy, "#a16a42");
+        } else if (id === B.STONE) {
+          drawCracks(sx, sy, wx, wy, "#5f6565", "#9aa0a0");
+        } else if (id === B.VIOLET_STONE) {
+          drawCracks(sx, sy, wx, wy, "#2d223d", "#8b74aa");
+          ctx.fillStyle = "rgba(180,95,230,0.28)";
+          ctx.fillRect(sx + 5, sy + 7, 6, 4);
+          ctx.fillRect(sx + 20, sy + 19, 7, 5);
+        } else if (id === B.COAL) {
+          drawCracks(sx, sy, wx, wy, "#4e5555", "#939898");
+          ctx.fillStyle = "#161819";
+          ctx.fillRect(sx + 7, sy + 8, 7, 6);
+          ctx.fillRect(sx + 19, sy + 19, 8, 6);
+        } else if (id === B.IRON) {
+          drawCracks(sx, sy, wx, wy, "#626767", "#a1a6a3");
+          ctx.fillStyle = "#c48a61";
+          ctx.fillRect(sx + 6, sy + 9, 7, 6);
+          ctx.fillRect(sx + 18, sy + 20, 9, 5);
+        } else if (id === B.DIAMOND) {
+          drawCracks(sx, sy, wx, wy, "#4c5552", "#89918d");
+          ctx.fillStyle = "#5ce7df";
+          ctx.fillRect(sx + 6, sy + 8, 7, 7);
+          ctx.fillRect(sx + 18, sy + 18, 8, 8);
+          ctx.fillStyle = "#cffffb";
+          ctx.fillRect(sx + 8, sy + 9, 3, 3);
+          ctx.fillRect(sx + 20, sy + 19, 3, 3);
+        } else if (id === B.LOG || id === B.VIOLET_LOG) {
+          if (id === B.VIOLET_LOG) {
+            ctx.fillStyle = "#6e3c8c";
+            ctx.fillRect(sx, sy, TILE, TILE);
+          }
+          ctx.fillStyle = "#4d2d17";
+          if (id === B.VIOLET_LOG) ctx.fillStyle = "#2d163d";
+          ctx.fillRect(sx + 5, sy, 5, TILE);
+          ctx.fillRect(sx + 22, sy, 4, TILE);
+          ctx.fillStyle = "rgba(255,255,255,0.08)";
+          ctx.fillRect(sx + 11, sy + 5, 10, 3);
+          ctx.fillRect(sx + 9, sy + 20, 12, 3);
+        } else if (id === B.LEAVES || id === B.VIOLET_LEAVES) {
+          const sway = Math.sin(time * 2 + wx * 0.8) * 1.2;
+          ctx.fillStyle = id === B.VIOLET_LEAVES ? "#8e5bd1" : "#5fb154";
+          ctx.fillRect(sx + 4 + sway, sy + 3, 18, 8);
+          ctx.fillStyle = id === B.VIOLET_LEAVES ? "#3a2361" : "#2e612d";
+          ctx.fillRect(sx + 3, sy + 21, 12, 7);
+          ctx.fillStyle = "rgba(255,255,255,0.08)";
+          ctx.fillRect(sx + 20, sy + 13, 7, 5);
+        } else if (id === B.SAND) {
+          drawPebbles(sx, sy, wx, wy, "#b79a55");
+          ctx.fillStyle = "rgba(255,255,255,0.16)";
+          ctx.fillRect(sx + 5, sy + 8, 5, 3);
+          ctx.fillRect(sx + 21, sy + 20, 4, 3);
+        } else if (id === B.WATER) {
+          ctx.globalAlpha = 0.78;
+          ctx.fillStyle = "#3c90d6";
+          ctx.fillRect(sx, sy, TILE, TILE);
+          ctx.fillStyle = "rgba(255,255,255,0.24)";
+          ctx.fillRect(sx + 3, sy + 10 + Math.sin(time * 4 + wx) * 2, 25, 3);
+          ctx.globalAlpha = 1;
+        } else if (id === B.PLANKS) {
+          ctx.fillStyle = "#8a5629";
+          ctx.fillRect(sx, sy + 9, TILE, 3);
+          ctx.fillRect(sx, sy + 22, TILE, 3);
+          ctx.fillStyle = "rgba(255,255,255,0.08)";
+          ctx.fillRect(sx + 4, sy + 4, 13, 3);
+          ctx.fillRect(sx + 16, sy + 17, 12, 3);
+        } else if (id === B.GLASS) {
+          ctx.globalAlpha = 0.62;
+          ctx.fillStyle = "#9ed6e0";
+          ctx.fillRect(sx, sy, TILE, TILE);
+          ctx.globalAlpha = 1;
+        } else if (id === B.TOXIC) {
+          ctx.globalAlpha = 0.82;
+          ctx.fillStyle = "#9b3ed0";
+          ctx.fillRect(sx, sy, TILE, TILE);
+          ctx.fillStyle = "rgba(235,170,255,0.34)";
+          ctx.fillRect(sx + 3, sy + 9 + Math.sin(time * 5 + wx) * 2, 25, 3);
+          ctx.fillRect(sx + 8, sy + 21, 12, 3);
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = "rgba(225,255,255,0.72)";
+          ctx.strokeRect(sx + 5, sy + 5, 22, 22);
+          ctx.fillStyle = "rgba(255,255,255,0.44)";
+          ctx.fillRect(sx + 8, sy + 8, 8, 3);
+          ctx.fillRect(sx + 19, sy + 18, 5, 3);
+        } else if (id === B.BRICKS) {
+          drawCracks(sx, sy, wx, wy, "#4d5555", "#9ca3a3");
+          ctx.fillStyle = "rgba(0,0,0,0.22)";
+          ctx.fillRect(sx, sy + 10, TILE, 2);
+          ctx.fillRect(sx, sy + 21, TILE, 2);
+          ctx.fillRect(sx + 14, sy, 2, 10);
+          ctx.fillRect(sx + 7, sy + 10, 2, 11);
+          ctx.fillRect(sx + 23, sy + 21, 2, 11);
+        } else if (id === B.CHEST) {
+          ctx.fillStyle = "#7a461d";
+          ctx.fillRect(sx + 3, sy + 8, 26, 19);
+          ctx.fillStyle = "#c48a3f";
+          ctx.fillRect(sx + 4, sy + 5, 24, 8);
+          ctx.fillStyle = "#2f1b0c";
+          ctx.fillRect(sx + 3, sy + 15, 26, 3);
+          ctx.fillStyle = "#e0c15c";
+          ctx.fillRect(sx + 14, sy + 13, 5, 6);
+        } else if (id === B.TABLE) {
+          ctx.fillStyle = "#d09a52";
+          ctx.fillRect(sx + 4, sy + 4, 24, 8);
+          ctx.fillStyle = "#5c351b";
+          ctx.fillRect(sx + 6, sy + 16, 6, 11);
+          ctx.fillRect(sx + 20, sy + 16, 6, 11);
+          ctx.fillRect(sx + 7, sy + 7, 5, 3);
+          ctx.fillRect(sx + 20, sy + 7, 5, 3);
+        } else if (id === B.FURNACE) {
+          ctx.fillStyle = "#25292b";
+          ctx.fillRect(sx + 5, sy + 6, 22, 20);
+          ctx.fillStyle = furnace.burn > 0 && nearbyBlock(B.FURNACE, 4) ? "#f0a041" : "#151719";
+          ctx.fillRect(sx + 10, sy + 15, 12, 8);
+          ctx.fillStyle = "rgba(255,255,255,0.1)";
+          ctx.fillRect(sx + 8, sy + 8, 16, 3);
+        } else if (id === B.CACTUS) {
+          ctx.fillStyle = "#2f6f36";
+          ctx.fillRect(sx + 9, sy + 2, 14, 29);
+          ctx.fillStyle = "#57ad4c";
+          ctx.fillRect(sx + 12, sy + 2, 7, 29);
+          ctx.fillStyle = "#d6f0bd";
+          for (let i = 0; i < 5; i++) ctx.fillRect(sx + 7 + (i % 2) * 17, sy + 5 + i * 5, 3, 2);
+        } else if (id === B.CAMPFIRE) {
+          ctx.fillStyle = "#5b351d";
+          ctx.fillRect(sx + 4, sy + 23, 24, 4);
+          ctx.fillRect(sx + 8, sy + 18, 18, 4);
+          const flicker = Math.sin(time * 12 + wx) * 2;
+          ctx.fillStyle = "#f0c25e";
+          ctx.fillRect(sx + 13, sy + 9 + flicker, 7, 15);
+          ctx.fillStyle = "#e65b46";
+          ctx.fillRect(sx + 16, sy + 13 - flicker, 5, 11);
+        } else if (id === B.DOOR) {
+          ctx.fillStyle = "#5b351d";
+          ctx.fillRect(sx + 7, sy + 1, 18, 31);
+          ctx.fillStyle = "#9a6531";
+          ctx.fillRect(sx + 10, sy + 4, 12, 25);
+          ctx.fillStyle = "#e0c15c";
+          ctx.fillRect(sx + 19, sy + 17, 3, 3);
+        } else if (id === B.BED) {
+          ctx.fillStyle = "#bf4242";
+          ctx.fillRect(sx + 2, sy + 10, 28, 13);
+          ctx.fillStyle = "#eee8d8";
+          ctx.fillRect(sx + 3, sy + 10, 10, 13);
+          ctx.fillStyle = "#5c351b";
+          ctx.fillRect(sx + 4, sy + 23, 4, 6);
+          ctx.fillRect(sx + 24, sy + 23, 4, 6);
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.18)";
+        ctx.strokeRect(sx + 0.5, sy + 0.5, TILE - 1, TILE - 1);
+      }
+
+      function drawPebbles(sx, sy, wx, wy, color) {
+        ctx.fillStyle = color;
+        for (let i = 0; i < 5; i++) {
+          const px = Math.floor(hash2(wx, wy, i) * 26) + 3;
+          const py = Math.floor(hash2(wx, wy, i + 10) * 22) + 6;
+          ctx.fillRect(sx + px, sy + py, 3 + (i % 2), 2);
+        }
+      }
+
+      function drawCracks(sx, sy, wx, wy, dark, light) {
+        ctx.fillStyle = light;
+        ctx.fillRect(sx + 4 + Math.floor(hash2(wx, wy, 1) * 4), sy + 5, 8, 4);
+        ctx.fillStyle = dark;
+        ctx.fillRect(sx + 18, sy + 18, 9, 5);
+        ctx.fillRect(sx + 9, sy + 23, 5, 3);
+      }
+
+      function drawMiningOverlay() {
+        if (!mining.active) return;
+        const sx = Math.floor(mining.x * TILE - camera.x);
+        const sy = Math.floor(mining.y * TILE - camera.y);
+        const stage = Math.max(1, Math.min(5, Math.ceil((mining.progress / mining.total) * 5)));
+        ctx.save();
+        ctx.strokeStyle = "rgba(20, 14, 10, 0.72)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < stage; i++) {
+          const ax = sx + 6 + i * 4;
+          const ay = sy + 7 + Math.floor(hash2(mining.x, mining.y, i) * 14);
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(ax + 7 + i, ay + 5);
+          ctx.lineTo(ax + 2, ay + 12);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
+        ctx.fillRect(sx + 3, sy + TILE - 6, (TILE - 6) * (mining.progress / mining.total), 3);
+        ctx.restore();
+      }
+
+      function drawWeather() {
+        if (!settings.weather || weather.type === "clear") return;
+        ctx.save();
+        const count = weather.type === "rain" ? 120 : 80;
+        for (let i = 0; i < count; i++) {
+          const x = (hash(i * 19 + Math.floor(time * 9)) * (window.innerWidth + 120) + time * 90 * weather.wind) % (window.innerWidth + 120) - 60;
+          const y = (hash(i * 37) * (window.innerHeight + 80) + time * (weather.type === "rain" ? 380 : 90)) % (window.innerHeight + 80) - 40;
+          if (weather.type === "rain") {
+            ctx.strokeStyle = "rgba(150,190,230,0.55)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + weather.wind * 16, y + 18);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = "rgba(245,250,255,0.8)";
+            ctx.fillRect(x, y, 3, 3);
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawEntities() {
+        for (const e of entities) {
+          const x = e.x * TILE - camera.x;
+          const y = e.y * TILE - camera.y;
+          ctx.save();
+          ctx.translate(x, y);
+          if (e.hurt > 0) ctx.globalAlpha = 0.72;
+          if (e.type === "sheep") drawSheep(e);
+          else if (e.type === "cow") drawCow(e);
+          else if (e.type === "chicken") drawChicken(e);
+          else if (e.type === "zombie") drawZombie(e);
+          else if (e.type === "creeper") drawCreeper(e);
+          else drawSkeleton(e);
+          if (e.hurt > 0) {
+            ctx.globalCompositeOperation = "source-atop";
+            ctx.fillStyle = "rgba(255, 30, 30, 0.72)";
+            ctx.fillRect(-24, -12, 48, 60);
+          }
+          ctx.restore();
+        }
+      }
+
+      function drawSheep(e) {
+        const bob = Math.sin(e.anim * 0.12) * 1.5;
+        ctx.fillStyle = "#2b211b";
+        ctx.fillRect(-13, 20 + bob, 5, 9);
+        ctx.fillRect(7, 20 - bob, 5, 9);
+        ctx.fillStyle = "#e9e2d0";
+        ctx.fillRect(-16, 3 + bob, 32, 18);
+        ctx.fillRect(-10, -6 + bob, 19, 15);
+        ctx.fillStyle = "#f7f2e6";
+        ctx.fillRect(-12, 0 + bob, 8, 7);
+        ctx.fillRect(3, 1 + bob, 8, 6);
+        ctx.fillStyle = "#2b211b";
+        ctx.fillRect(e.vx >= 0 ? 5 : -8, -1 + bob, 3, 3);
+        ctx.fillRect(e.vx >= 0 ? 12 : -15, 7 + bob, 8, 6);
+      }
+
+      function drawCow(e) {
+        const bob = Math.sin(e.anim * 0.1) * 1.2;
+        ctx.fillStyle = "#3b251b";
+        ctx.fillRect(-15, 23 + bob, 5, 12);
+        ctx.fillRect(8, 23 - bob, 5, 12);
+        ctx.fillStyle = "#8a5a39";
+        ctx.fillRect(-18, 4 + bob, 36, 22);
+        ctx.fillStyle = "#efe2cf";
+        ctx.fillRect(-12, 8 + bob, 9, 9);
+        ctx.fillRect(5, 13 + bob, 10, 8);
+        ctx.fillStyle = "#8a5a39";
+        ctx.fillRect(e.vx >= 0 ? 11 : -21, -4 + bob, 15, 15);
+        ctx.fillStyle = "#1a1512";
+        ctx.fillRect(e.vx >= 0 ? 20 : -17, 1 + bob, 3, 3);
+        ctx.fillStyle = "#d8c0a0";
+        ctx.fillRect(e.vx >= 0 ? 8 : -14, -7 + bob, 4, 5);
+        ctx.fillRect(e.vx >= 0 ? 22 : -26, -7 + bob, 4, 5);
+      }
+
+      function drawChicken(e) {
+        const bob = Math.sin(e.anim * 0.18) * 1.4;
+        ctx.fillStyle = "#d28b2c";
+        ctx.fillRect(-4, 16 + bob, 3, 8);
+        ctx.fillRect(3, 16 - bob, 3, 8);
+        ctx.fillStyle = "#f3f0df";
+        ctx.fillRect(-9, 2 + bob, 18, 15);
+        ctx.fillStyle = "#fff7eb";
+        ctx.fillRect(e.vx >= 0 ? 3 : -11, -5 + bob, 11, 10);
+        ctx.fillStyle = "#d94f47";
+        ctx.fillRect(e.vx >= 0 ? 6 : -8, -9 + bob, 5, 4);
+        ctx.fillStyle = "#d28b2c";
+        ctx.fillRect(e.vx >= 0 ? 13 : -15, -1 + bob, 5, 4);
+        ctx.fillStyle = "#1a1512";
+        ctx.fillRect(e.vx >= 0 ? 9 : -5, -2 + bob, 2, 2);
+      }
+
+      function drawZombie(e) {
+        const step = Math.sin(e.anim * 0.22) * 5;
+        ctx.fillStyle = "#2b3345";
+        ctx.fillRect(-8, 24, 6, 18 + step * 0.1);
+        ctx.fillRect(2, 24, 6, 18 - step * 0.1);
+        ctx.fillStyle = e.violet ? "#4d2e74" : "#3d6fba";
+        ctx.fillRect(-10, 8, 20, 22);
+        ctx.fillStyle = e.violet ? "#8e5bd1" : "#5aac55";
+        ctx.fillRect(-8, -8, 16, 17);
+        ctx.fillStyle = "#101514";
+        ctx.fillRect(-5, -2, 3, 3);
+        ctx.fillRect(4, -2, 3, 3);
+      }
+
+      function drawCreeper(e) {
+        const pulse = e.fuse > 0 ? Math.floor(e.fuse / 120) % 2 : 0;
+        ctx.fillStyle = pulse ? "#e8f5d0" : "#55b84d";
+        ctx.fillRect(-10, 3, 20, 28);
+        ctx.fillStyle = pulse ? "#b7d9a4" : "#3f9440";
+        ctx.fillRect(-7, -12, 14, 17);
+        ctx.fillStyle = "#244026";
+        ctx.fillRect(-7, 26, 6, 16);
+        ctx.fillRect(1, 26, 6, 16);
+        ctx.fillStyle = "#101514";
+        ctx.fillRect(-5, -6, 3, 4);
+        ctx.fillRect(3, -6, 3, 4);
+        ctx.fillRect(-3, 0, 6, 5);
+        if (e.fuse > 0) {
+          ctx.strokeStyle = `rgba(240, 194, 94, ${Math.min(0.9, e.fuse / 1450)})`;
+          ctx.lineWidth = 3;
+          ctx.strokeRect(-13, -15, 26, 58);
+        }
+      }
+
+      function drawSkeleton(e) {
+        const aim = player.x > e.x ? 1 : -1;
+        ctx.strokeStyle = e.violet ? "#c89cff" : "#d8d8c8";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(-4, 10);
+        ctx.lineTo(-11, 28);
+        ctx.moveTo(5, 10);
+        ctx.lineTo(11, 28);
+        ctx.moveTo(-8, 13);
+        ctx.lineTo(aim * 14, 18);
+        ctx.stroke();
+        ctx.fillStyle = e.violet ? "#c89cff" : "#d8d8c8";
+        ctx.fillRect(-7, -6, 14, 14);
+        ctx.fillRect(-5, 10, 10, 22);
+        ctx.fillStyle = "#1c1f21";
+        ctx.fillRect(-4, -1, 3, 3);
+        ctx.fillRect(3, -1, 3, 3);
+        ctx.strokeStyle = "#5b351d";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(aim * 15, 17, 10, -1.2, 1.2);
+        ctx.stroke();
+      }
+
+      function drawArrows() {
+        ctx.strokeStyle = "#5b351d";
+        ctx.lineWidth = 3;
+        ctx.fillStyle = "#d8d6cb";
+        for (const a of arrows) {
+          const x = a.x * TILE - camera.x;
+          const y = a.y * TILE - camera.y;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(a.rot);
+          ctx.beginPath();
+          ctx.moveTo(-10, 0);
+          ctx.lineTo(11, 0);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(11, 0);
+          ctx.lineTo(4, -4);
+          ctx.lineTo(4, 4);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function drawPlayer(targetCtx = ctx, scale = 1, ox = 0, oy = 0, preview = false) {
+        const bob = preview ? 0 : Math.sin(player.walk) * 2;
+        const face = preview ? 1 : player.facing;
+        const x = preview ? ox : player.x * TILE - camera.x;
+        const y = preview ? oy : player.y * TILE - camera.y;
+        targetCtx.save();
+        targetCtx.translate(x, y + bob);
+        targetCtx.scale(scale, scale);
+        if (!preview && player.invuln > 0 && Math.floor(player.invuln / 70) % 2 === 0) targetCtx.globalAlpha = 0.55;
+        targetCtx.fillStyle = "#22324d";
+        targetCtx.fillRect(-9, 34, 7, 19);
+        targetCtx.fillRect(2, 34, 7, 19);
+        targetCtx.fillStyle = armorSlot ? itemInfo(armorSlot.item).dark : "#2f7a43";
+        targetCtx.fillRect(-11, 8, 22, 28);
+        targetCtx.fillStyle = armorSlot ? itemInfo(armorSlot.item).color : "#56a85b";
+        targetCtx.fillRect(-10, 6, 20, 20);
+        targetCtx.fillStyle = "#d2a071";
+        targetCtx.fillRect(-8, -9, 16, 16);
+        targetCtx.fillStyle = "#212629";
+        targetCtx.fillRect(face > 0 ? 3 : -6, -3, 3, 3);
+        targetCtx.fillStyle = "#d2a071";
+        const armSwing = preview ? 0 : Math.sin(player.walk + Math.PI) * 4;
+        const actionSwing = !preview && player.attack > 0 ? Math.sin((220 - player.attack) / 220 * Math.PI) * 13 : 0;
+        targetCtx.fillRect(-15, 10 + armSwing, 5, 20);
+        targetCtx.fillRect(10, 10 - armSwing - actionSwing, 5, 20);
+        if (!preview) drawHeldItem(targetCtx, selectedStack(), face, actionSwing);
+        targetCtx.restore();
+      }
+
+      function drawHeldItem(targetCtx, stack, face, actionSwing = 0) {
+        if (!stack) return;
+        const info = itemInfo(stack.item);
+        targetCtx.save();
+        targetCtx.translate(face * 20, 16 - actionSwing);
+        targetCtx.scale(face, 1);
+        targetCtx.rotate(-0.55 + actionSwing * 0.018);
+        if (blocks[stack.item]) {
+          targetCtx.fillStyle = info.color;
+          targetCtx.fillRect(-5, -12, 14, 14);
+          targetCtx.fillStyle = "rgba(0,0,0,0.24)";
+          targetCtx.fillRect(-5, -5, 14, 3);
+          targetCtx.fillStyle = "rgba(255,255,255,0.18)";
+          targetCtx.fillRect(-2, -10, 7, 3);
+        } else if (info.tool === "pick" || info.tool === "axe") {
+          targetCtx.strokeStyle = "#6b3d20";
+          targetCtx.lineWidth = 4;
+          targetCtx.beginPath();
+          targetCtx.moveTo(0, 8);
+          targetCtx.lineTo(0, -12);
+          targetCtx.stroke();
+          targetCtx.strokeStyle = info.color;
+          targetCtx.lineWidth = 5;
+          targetCtx.beginPath();
+          targetCtx.moveTo(-10, -11);
+          targetCtx.lineTo(11, -11);
+          if (info.tool === "axe") targetCtx.lineTo(7, -2);
+          targetCtx.stroke();
+        } else {
+          targetCtx.fillStyle = info.color;
+          targetCtx.fillRect(-3, -14, 6, 22);
+          targetCtx.fillStyle = info.dark;
+          targetCtx.fillRect(-8, 2, 16, 4);
+        }
+        targetCtx.restore();
+      }
+
+      function drawRemotePlayers() {
+        if (!multiplayer.peers.size) return;
+        for (const peer of multiplayer.peers.values()) {
+          const x = peer.x * TILE - camera.x;
+          const y = peer.y * TILE - camera.y;
+          const face = peer.facing || 1;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.fillStyle = "rgba(0,0,0,0.32)";
+          ctx.fillRect(-13, 52, 26, 5);
+          ctx.fillStyle = "#29354f";
+          ctx.fillRect(-9, 34, 7, 19);
+          ctx.fillRect(2, 34, 7, 19);
+          ctx.fillStyle = "#34668c";
+          ctx.fillRect(-11, 8, 22, 28);
+          ctx.fillStyle = "#5aa2d6";
+          ctx.fillRect(-10, 6, 20, 20);
+          ctx.fillStyle = "#d2a071";
+          ctx.fillRect(-8, -9, 16, 16);
+          ctx.fillStyle = "#101514";
+          ctx.fillRect(face > 0 ? 3 : -6, -3, 3, 3);
+          ctx.fillStyle = "#d2a071";
+          ctx.fillRect(-15, 10, 5, 20);
+          ctx.fillRect(10, 10, 5, 20);
+          if (peer.held) {
+            const info = itemInfo(peer.held);
+            ctx.strokeStyle = info.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(face * 12, 16);
+            ctx.lineTo(face * 24, 8);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      function render() {
+        drawSky();
+        const startX = Math.max(0, Math.floor(camera.x / TILE) - 1);
+        const endX = Math.min(WORLD_W, Math.ceil((camera.x + window.innerWidth) / TILE) + 1);
+        const startY = Math.max(0, Math.floor(camera.y / TILE) - 1);
+        const endY = Math.min(WORLD_H, Math.ceil((camera.y + window.innerHeight) / TILE) + 1);
+
+        for (let y = startY; y < endY; y++) {
+          for (let x = startX; x < endX; x++) {
+            const id = getBlock(x, y);
+            if (id !== B.AIR) drawBlock(id, Math.floor(x * TILE - camera.x), Math.floor(y * TILE - camera.y), x, y);
+          }
+        }
+
+        drawEntities();
+        drawPlayer();
+        drawRemotePlayers();
+        drawArrows();
+
+        const target = worldMouse();
+        if (!inventoryOpen && inReach(target.x, target.y)) {
+          const id = getBlock(target.x, target.y);
+          ctx.strokeStyle = id ? "rgba(255,255,255,0.86)" : "rgba(255,255,255,0.35)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(target.x * TILE - camera.x + 1, target.y * TILE - camera.y + 1, TILE - 2, TILE - 2);
+        }
+        drawMiningOverlay();
+        drawWeather();
+
+        const darkness = 0.42 * (1 - daylightLevel());
+        if (darkness > 0.03) {
+          ctx.fillStyle = `rgba(8, 12, 22, ${darkness})`;
+          ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        }
+      }
+
+      function renderAllUi() {
+        renderHotbar();
+        if (inventoryOpen) renderInventory();
+        renderCursor();
+      }
+
+      function renderHotbar() {
+        hotbarEl.innerHTML = "";
+        for (let i = 0; i < 9; i++) {
+          const btn = document.createElement("button");
+          btn.className = `slot${i === selected ? " selected" : ""}${inventory[i] ? "" : " empty"}`;
+          btn.dataset.index = i;
+          btn.innerHTML = slotHtml(inventory[i], String(i + 1));
+          wireSlotDrag(btn, { type: "inv", index: i });
+          btn.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            if (inventoryOpen) handleSlot({ type: "inv", index: i }, e.button === 2);
+            else selected = i;
+            renderAllUi();
+          });
+          hotbarEl.append(btn);
+        }
+      }
+
+      function renderInventory() {
+        syncCraftSize();
+        armorText.textContent = armorSlot ? itemName(armorSlot.item) : "Zırh yok";
+        armorSlotEl.className = `slot armor-slot${armorSlot ? "" : " empty"}`;
+        armorSlotEl.innerHTML = slotHtml(armorSlot);
+        wireSlotDrag(armorSlotEl, { type: "armor" });
+        armorSlotEl.onmousedown = (e) => {
+          e.preventDefault();
+          handleSlot({ type: "armor" }, e.button === 2);
+        };
+
+        invGridEl.innerHTML = "";
+        for (let i = 0; i < inventory.length; i++) {
+          const btn = document.createElement("button");
+          btn.className = `slot${i === selected ? " selected" : ""}${inventory[i] ? "" : " empty"}`;
+          btn.innerHTML = slotHtml(inventory[i], i < 9 ? String(i + 1) : "");
+          wireSlotDrag(btn, { type: "inv", index: i });
+          btn.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            handleSlot({ type: "inv", index: i }, e.button === 2);
+          });
+          invGridEl.append(btn);
+        }
+
+        craftGridEl.className = `craft-grid size-${craftSize}`;
+        craftGridEl.innerHTML = "";
+        for (let i = 0; i < craftSlots.length; i++) {
+          const btn = document.createElement("button");
+          btn.className = `slot${craftSlots[i] ? "" : " empty"}`;
+          btn.innerHTML = slotHtml(craftSlots[i]);
+          wireSlotDrag(btn, { type: "craft", index: i });
+          btn.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            handleSlot({ type: "craft", index: i }, e.button === 2);
+          });
+          craftGridEl.append(btn);
+        }
+
+        const match = craftMatch();
+        craftOutputEl.className = `slot craft-output${match ? "" : " empty"}`;
+        craftOutputEl.innerHTML = slotHtml(match ? makeStack(match.recipe.out, match.recipe.count) : null);
+        craftOutputEl.title = match ? "Craft etmek icin tikla" : "Gecerli tarif yok";
+        craftOutputEl.onmousedown = (e) => {
+          e.preventDefault();
+          handleSlot({ type: "craftOutput" }, false);
+        };
+
+        const nearTable = craftSize === 3;
+        const nearFurnace = nearbyBlock(B.FURNACE, 3);
+        craftModeText.textContent = nearTable ? "3x3 masa" : "2x2 cep";
+        furnaceModeText.textContent = nearFurnace ? "Aktif" : "Yakınında değil";
+        recipeNoteEl.textContent = match ? `${match.recipe.name} üretilebilir` : "Tarif listesinden tek tıkla üret veya gride malzeme koy";
+        renderRecipeBook();
+
+        renderFurnaceSlot(furnaceInputEl, "furnaceInput", furnace.input, nearFurnace);
+        renderFurnaceSlot(furnaceFuelEl, "furnaceFuel", furnace.fuel, nearFurnace);
+        renderFurnaceSlot(furnaceOutputEl, "furnaceOutput", furnace.output, nearFurnace);
+        burnBar.style.width = `${Math.max(0, Math.min(100, (furnace.burn / furnace.burnMax) * 100))}%`;
+        smeltBar.style.width = `${Math.max(0, Math.min(100, (furnace.progress / furnace.target) * 100))}%`;
+
+        drawPaperdoll();
+      }
+
+      function renderRecipeBook() {
+        recipeBookEl.innerHTML = "";
+        for (const recipe of recipes) {
+          const btn = document.createElement("button");
+          const canCraft = canCraftRecipe(recipe);
+          btn.className = "recipe-button";
+          btn.disabled = !canCraft;
+          btn.innerHTML = `<span>${recipe.name} x${recipe.count}</span><span class="recipe-cost">${ingredientText(recipe)}</span>`;
+          btn.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            craftRecipeFromInventory(recipe);
+          });
+          recipeBookEl.append(btn);
+        }
+      }
+
+      function renderFurnaceSlot(el, type, stack, enabled) {
+        el.className = `slot${stack ? "" : " empty"}`;
+        el.style.opacity = enabled ? "1" : "0.45";
+        el.innerHTML = slotHtml(stack);
+        wireSlotDrag(el, { type }, enabled);
+        el.onmousedown = (e) => {
+          e.preventDefault();
+          if (!enabled) {
+            toast("Fırına yaklaş");
+            return;
+          }
+          handleSlot({ type }, e.button === 2);
+        };
+      }
+
+      function slotHtml(stack, key = "") {
+        const keyHtml = key ? `<span class="slot-key">${key}</span>` : "";
+        if (!stack) return `${keyHtml}`;
+        const info = itemInfo(stack.item);
+        const icon = info.icon || "";
+        const count = stack.count > 1 ? `<span class="slot-count">${stack.count}</span>` : "";
+        const itemClass = `item-${String(stack.item).replace(/[^a-z0-9_-]/gi, "_")}`;
+        return `${keyHtml}<span class="slot-icon ${itemClass}" title="${info.name}" style="background: linear-gradient(135deg, ${info.color}, ${info.dark});">${icon}</span>${count}`;
+      }
+
+      function wireSlotDrag(btn, target, enabled = true) {
+        btn.draggable = enabled && !!getSlot(target) && !["craftOutput", "furnaceOutput"].includes(target.type);
+        btn.addEventListener("dragstart", (e) => {
+          if (!btn.draggable) return;
+          dragSource = target;
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", JSON.stringify(target));
+        });
+        btn.addEventListener("dragover", (e) => {
+          if (!enabled || !dragSource || target.type === "craftOutput" || target.type === "furnaceOutput") return;
+          e.preventDefault();
+        });
+        btn.addEventListener("drop", (e) => {
+          e.preventDefault();
+          if (!enabled || !dragSource) return;
+          moveSlotByDrag(dragSource, target);
+          dragSource = null;
+        });
+        btn.addEventListener("dragend", () => {
+          dragSource = null;
+        });
+      }
+
+      function sameTarget(a, b) {
+        return a && b && a.type === b.type && a.index === b.index;
+      }
+
+      function moveSlotByDrag(from, to) {
+        if (sameTarget(from, to)) return;
+        const source = getSlot(from);
+        const dest = getSlot(to);
+        if (!source || !canAcceptHeld(to, source.item)) return;
+        if (dest && !canAcceptHeld(from, dest.item)) return;
+        if (dest && sameStack(source, dest) && dest.count < maxStack(dest.item)) {
+          const move = Math.min(source.count, maxStack(dest.item) - dest.count);
+          dest.count += move;
+          source.count -= move;
+          if (source.count <= 0) setSlot(from, null);
+        } else {
+          setSlot(from, dest ? cloneStack(dest) : null);
+          setSlot(to, cloneStack(source));
+        }
+        renderAllUi();
+      }
+
+      function renderCursor() {
+        if (!heldStack) {
+          cursorStackEl.classList.add("hidden");
+          return;
+        }
+        cursorStackEl.classList.remove("hidden");
+        cursorStackEl.style.left = `${mouse.x}px`;
+        cursorStackEl.style.top = `${mouse.y}px`;
+        cursorStackEl.innerHTML = `<button class="slot">${slotHtml(heldStack)}</button>`;
+      }
+
+      function drawPaperdoll() {
+        paper.clearRect(0, 0, paperdoll.width, paperdoll.height);
+        const g = paper.createLinearGradient(0, 0, 0, paperdoll.height);
+        g.addColorStop(0, "#334b52");
+        g.addColorStop(1, "#182224");
+        paper.fillStyle = g;
+        paper.fillRect(0, 0, paperdoll.width, paperdoll.height);
+        drawPlayer(paper, 1.55, 56, 30, true);
+      }
+
+      function updateHud() {
+        healthBar.style.transform = `scaleX(${Math.max(0, player.health) / 100})`;
+        hungerBar.style.transform = `scaleX(${player.hunger / 100})`;
+        armorBar.style.transform = `scaleX(${armorSlot ? (itemInfo(armorSlot.item).armor || 0) / 4 : 0})`;
+        heatBar.style.transform = `scaleX(${player.heat / 100})`;
+        xpBar.style.transform = `scaleX(${player.xp / xpToNext()})`;
+        coordStatus.textContent = `${Math.floor(player.x)}, ${Math.floor(player.y)}`;
+        const p = cycleProgress();
+        const label = isNight() ? "Gece" : p < 0.16 ? "Sabah" : p < 0.44 ? "Öğlen" : "Akşam";
+        const ailment = player.poison > 0 ? " - Zehir" : "";
+        worldStatus.textContent = `${gameMode === "creative" ? "Creative" : "Survival"} - Gün ${day} - ${label} - ${biomeLabel(player.x)} - Lv ${player.level}${ailment}`;
+        if (inventoryOpen) renderInventory();
+      }
+
+      function loop(now) {
+        const elapsed = Math.min(34, now - lastFrame);
+        const step = elapsed / 16.6667;
+        lastFrame = now;
+        if (started && player.health > 0) update(step, elapsed);
+        updateToast(elapsed);
+        render();
+        updateHud();
+        requestAnimationFrame(loop);
+      }
+
+      window.addEventListener("resize", resize);
+      startGameBtn.addEventListener("click", () => {
+        started = true;
+        mainMenu.classList.add("hidden");
+        messageEl.classList.add("hidden");
+      });
+      newWorldBtn.addEventListener("click", () => createNewWorld(gameMode));
+      loadWorldsBtn.addEventListener("click", () => {
+        renderSavedWorlds();
+        worldsBox.classList.toggle("open");
+      });
+      saveWorldBtn.addEventListener("click", () => saveCurrentWorld(true));
+      survivalModeBtn.addEventListener("click", () => setGameMode("survival"));
+      creativeModeBtn.addEventListener("click", () => setGameMode("creative"));
+      settingsBtn.addEventListener("click", () => settingsBox.classList.toggle("open"));
+      multiplayerBtn.addEventListener("click", () => {
+        // mpModal aşağıda oluşturulacak; click sırasında zaten var
+        const modal = document.getElementById('mpModal');
+        const backdrop = document.getElementById('mpBackdrop');
+        if (modal && backdrop) {
+          const isHidden = modal.style.display === 'none' || modal.style.display === '';
+          modal.style.display = isHidden ? 'block' : 'none';
+          backdrop.style.display = isHidden ? 'block' : 'none';
+        }
+      });
+      lanJoinBtn.addEventListener("click", () => {
+        const modal = document.getElementById('mpModal');
+        const backdrop = document.getElementById('mpBackdrop');
+        if (modal && backdrop) {
+          modal.style.display = 'block';
+          backdrop.style.display = 'block';
+        }
+      });
+      weatherToggle.addEventListener("click", () => {
+        settings.weather = !settings.weather;
+        weatherToggle.textContent = settings.weather ? "Açık" : "Kapalı";
+      });
+      dangerToggle.addEventListener("click", () => {
+        settings.danger = !settings.danger;
+        dangerToggle.textContent = settings.danger ? "Açık" : "Kapalı";
+      });
+      window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+        renderCursor();
+      });
+      window.addEventListener("keydown", (e) => {
+        const key = e.key.toLowerCase();
+        keys[key] = true;
+        if (key >= "1" && key <= "9") {
+          selected = Number(key) - 1;
+          renderAllUi();
+        }
+        if (key === "e") toggleInventory();
+        if (key === "r") {
+          seed = Math.floor(Math.random() * 999999);
+          generateWorld();
+          if (multiplayer.enabled && multiplayer.socket?.readyState === WebSocket.OPEN) {
+            multiplayer.socket.send(JSON.stringify({ type: "reset", seed }));
+          }
+          started = true;
+          messageEl.classList.add("hidden");
+        }
+        if (key === "c") setGameMode(gameMode === "creative" ? "survival" : "creative");
+        if ([" ", "arrowup", "arrowleft", "arrowright", "e"].includes(key)) e.preventDefault();
+      });
+      window.addEventListener("keyup", (e) => {
+        keys[e.key.toLowerCase()] = false;
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+      canvas.addEventListener("mousedown", (e) => {
+        if (inventoryOpen) return;
+        started = true;
+        messageEl.classList.add("hidden");
+        if (e.button === 0) mouseButtons.left = true;
+        mineOrUse(e.button);
+      });
+      window.addEventListener("mouseup", (e) => {
+        if (e.button === 0) {
+          mouseButtons.left = false;
+          mining.active = false;
+        }
+      });
+      canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+      document.addEventListener("contextmenu", (e) => e.preventDefault());
+      messageEl.addEventListener("click", () => {
+        started = true;
+        if (player.health <= 0) generateWorld();
+        messageEl.classList.add("hidden");
+      });
+
+      // ==================== MULTIPLAYER SISTEM ====================
+      const multiplayerState = {
+        enabled: false,
+        socket: null,
+        playerId: null,
+        otherPlayers: new Map(),
+        lastUpdateTime: 0
+      };
+
+      // WebSocket'e bağlan
+      function connectMultiplayer(serverIP) {
+        return new Promise((resolve, reject) => {
+          try {
+            const wsURL = `ws://${serverIP}:3000`;
+            console.log(`Sunucuya bağlanıyor: ${wsURL}`);
+            multiplayerState.socket = new WebSocket(wsURL);
+
+            multiplayerState.socket.onopen = () => {
+              console.log("✓ Sunucuya bağlandı!");
+              multiplayerState.enabled = true;
+              multiplayerState.playerId = `Player_${Math.random().toString(36).substr(2, 9)}`;
+              
+              multiplayerState.socket.send(JSON.stringify({
+                type: 'join',
+                playerId: multiplayerState.playerId,
+                x: Math.floor(player.x),
+                y: Math.floor(player.y),
+                name: `Oyuncu_${multiplayerState.playerId.substr(-4)}`
+              }));
+              
+              toast("✓ Sunucuya bağlandınız!");
+              resolve();
+            };
+
+            multiplayerState.socket.onmessage = (e) => {
+              const data = JSON.parse(e.data);
+              handleMultiplayerMessage(data);
+            };
+
+            multiplayerState.socket.onerror = (err) => {
+              console.error("WebSocket hatası:", err);
+              multiplayerState.enabled = false;
+              reject(err);
+            };
+
+            multiplayerState.socket.onclose = () => {
+              console.log("Sunucudan ayrıldı");
+              multiplayerState.enabled = false;
+              multiplayerState.otherPlayers.clear();
+              toast("Sunucu bağlantısı kesildi");
+            };
+
+            setTimeout(() => {
+              if (multiplayerState.socket.readyState !== WebSocket.OPEN) {
+                reject(new Error("Bağlantı timeout (sunucu çalışıyor mu?)"));
+              }
+            }, 5000);
+
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+
+      function handleMultiplayerMessage(data) {
+        switch (data.type) {
+          case 'playerList':
+            data.players.forEach(p => {
+              if (p.id !== multiplayerState.playerId) {
+                multiplayerState.otherPlayers.set(p.id, p);
+              }
+            });
+            break;
+
+          case 'playerJoined':
+            multiplayerState.otherPlayers.set(data.playerId, {
+              id: data.playerId,
+              x: data.x,
+              y: data.y,
+              health: 100,
+              name: data.name
+            });
+            toast(`${data.name} katıldı`);
+            break;
+
+          case 'playerLeft':
+            multiplayerState.otherPlayers.delete(data.playerId);
+            toast(`${data.playerName} ayrıldı`);
+            break;
+
+          case 'playerMoved':
+            if (multiplayerState.otherPlayers.has(data.playerId)) {
+              const p = multiplayerState.otherPlayers.get(data.playerId);
+              p.x = data.x;
+              p.y = data.y;
+            }
+            break;
+
+          case 'playerHealth':
+            if (multiplayerState.otherPlayers.has(data.playerId)) {
+              multiplayerState.otherPlayers.get(data.playerId).health = data.health;
+            }
+            break;
+
+          case 'blockChanged':
+            if (data.action === 'place') {
+              const chunkY = Math.floor(data.y / 16);
+              if (chunks[chunkY]) {
+                chunks[chunkY].blocks.set(`${data.x},${data.y}`, data.block);
+              }
+            } else {
+              const chunkY = Math.floor(data.y / 16);
+              if (chunks[chunkY]) {
+                chunks[chunkY].blocks.delete(`${data.x},${data.y}`);
+              }
+            }
+            break;
+
+          case 'chatMessage':
+            toast(`${data.playerName}: ${data.message}`);
+            break;
+
+          case 'worldReset':
+            seed = data.seed;
+            generateWorld();
+            break;
+        }
+      }
+
+      function sendMultiplayerMessage(data) {
+        if (multiplayerState.socket && multiplayerState.socket.readyState === WebSocket.OPEN) {
+          multiplayerState.socket.send(JSON.stringify(data));
+        }
+      }
+
+      function drawOtherPlayers() {
+        if (!multiplayerState.enabled) return;
+        
+        multiplayerState.otherPlayers.forEach((player) => {
+          const screenX = (player.x - (player.x - canvas.width / 2 / scale)) * scale;
+          const screenY = (player.y - (player.y - canvas.height / 2 / scale)) * scale;
+
+          const onScreenX = (player.x - player.x + canvas.width / 2) * scale;
+          const onScreenY = (player.y - player.y + canvas.height / 2) * scale;
+
+          // Kamera dönüşümü
+          const cameraX = player.x - canvas.width / 2 / scale;
+          const cameraY = player.y - canvas.height / 2 / scale;
+          const screenPosX = (player.x - cameraX) * scale;
+          const screenPosY = (player.y - cameraY) * scale;
+
+          if (screenPosX < -100 || screenPosX > canvas.width + 100 ||
+              screenPosY < -100 || screenPosY > canvas.height + 100) {
+            return;
+          }
+
+          // Oyuncu sprite'ı çiz
+          ctx.fillStyle = '#ff6b6b';
+          ctx.fillRect(screenPosX, screenPosY, scale, scale * 1.8);
+
+          // Ad
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 12px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(player.name, screenPosX + scale / 2, screenPosY - 8);
+
+          // Sağlık
+          ctx.fillStyle = '#333';
+          ctx.fillRect(screenPosX, screenPosY - 18, scale, 5);
+          ctx.fillStyle = player.health > 50 ? '#00ff00' : '#ffaa00';
+          ctx.fillRect(screenPosX, screenPosY - 18, scale * (player.health / 100), 5);
+        });
+      }
+
+      // ====================  ORIJINAL KURULUM ====================
+      resize();
+      generateWorld();
+      renderSavedWorlds();
+      initMultiplayer();
+      window.addEventListener("beforeunload", () => saveCurrentWorld(false));
+
+      // Game loop'a multiplayer entegrasyonu
+      const originalLoop = loop;
+      const newLoop = function(now) {
+        const elapsed = Math.min(34, now - lastFrame);
+        const step = elapsed / 16.6667;
+        lastFrame = now;
+        if (started && player.health > 0) update(step, elapsed);
+        updateToast(elapsed);
+        render();
+        
+        // Diğer oyuncuları çiz
+        drawOtherPlayers();
+        
+        updateHud();
+        requestAnimationFrame(newLoop);
+
+        // Multiplayer konumunu güncelle
+        if (multiplayerState.enabled && started) {
+          if (now - multiplayerState.lastUpdateTime > 100) {
+            sendMultiplayerMessage({
+              type: 'movePlayer',
+              playerId: multiplayerState.playerId,
+              x: Math.floor(player.x),
+              y: Math.floor(player.y)
+            });
+            multiplayerState.lastUpdateTime = now;
+          }
+        }
+      };
+      
+      // Multiplayer menüsünü ayarla - MODAL ARKAPLAN
+      const lanBackdrop = document.createElement('div');
+      lanBackdrop.id = 'mpBackdrop';
+      lanBackdrop.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9998;
+        display: none;
+        pointer-events: auto;
+      `;
+
+      const mpModal = document.createElement('div');
+      mpModal.id = 'mpModal';
+      mpModal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(180deg, #1a2428 0%, #0d1114 100%);
+        border: 2px solid #f0c25e;
+        border-radius: 12px;
+        padding: 28px;
+        z-index: 9999;
+        display: none;
+        min-width: 360px;
+        box-shadow: 0 25px 80px rgba(0,0,0,0.95);
+        pointer-events: auto;
+      `;
+
+      lanBackdrop.addEventListener('click', (e) => {
+        if (e.target === lanBackdrop) {
+          lanBackdrop.style.display = 'none';
+          mpModal.style.display = 'none';
+        }
+      });
+      document.body.appendChild(lanBackdrop);
+
+      mpModal.innerHTML = `
+        <h2 style="color: #f0c25e; margin-top: 0; text-align: center; font-size: 24px;">🌐 LAN Multiplayer</h2>
+        <p style="color: #aeb8aa; font-size: 13px; margin-bottom: 16px; text-align: center;">
+          Sunucu IP Adresi (örn: 192.168.1.100)
+        </p>
+        <input type="text" id="serverInput" placeholder="127.0.0.1"
+          style="
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 16px;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid #f0c25e;
+            color: #fff;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            pointer-events: auto;
+          "
+        />
+        <button id="lanConnectBtn" style="
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(180deg, #6cc05a, #5a9a4a);
+          color: white;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+          font-size: 14px;
+          margin-bottom: 10px;
+          pointer-events: auto;
+          transition: all 0.2s;
+        ">Sunucuya Bağlan</button>
+        
+        <button id="lanDisconnectBtn" style="
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(180deg, #d94f47, #a83c34);
+          color: white;
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+          font-size: 14px;
+          pointer-events: auto;
+          transition: all 0.2s;
+        ">Bağlantıyı Kes</button>
+
+        <div id="lanStatus" style="
+          margin-top: 16px;
+          padding: 14px;
+          background: rgba(0,0,0,0.3);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 6px;
+          font-size: 12px;
+          color: #aeb8aa;
+          text-align: center;
+          pointer-events: none;
+        ">Durum: Bağlı Değil</div>
+      `;
+      document.body.appendChild(mpModal);
+
+      const serverInput = document.getElementById('serverInput');
+      const lanConnectBtn = document.getElementById('lanConnectBtn');
+      const lanDisconnectBtn = document.getElementById('lanDisconnectBtn');
+      const lanStatus = document.getElementById('lanStatus');
+
+      lanConnectBtn.addEventListener('click', async () => {
+        const ip = serverInput.value.trim();
+        if (!ip) {
+          toast('Lütfen sunucu IP adresini girin');
+          return;
+        }
+
+        lanConnectBtn.disabled = true;
+        lanConnectBtn.textContent = 'Bağlanıyor...';
+        
+        try {
+          await connectMultiplayer(ip);
+          lanStatus.innerHTML = `✓ Bağlı: <strong>${ip}:3000</strong>`;
+          lanStatus.style.color = '#6cc05a';
+          setTimeout(() => {
+            mpModal.style.display = 'none';
+            lanBackdrop.style.display = 'none';
+          }, 500);
+        } catch (err) {
+          lanStatus.innerHTML = `✗ Hata: ${err.message}`;
+          lanStatus.style.color = '#d94f47';
+          lanConnectBtn.disabled = false;
+          lanConnectBtn.textContent = 'Sunucuya Bağlan';
+        }
+      });
+
+      lanDisconnectBtn.addEventListener('click', () => {
+        if (multiplayerState.socket) {
+          multiplayerState.socket.close();
+        }
+        multiplayerState.enabled = false;
+        multiplayerState.otherPlayers.clear();
+        lanStatus.innerHTML = 'Durum: Bağlı Değil';
+        lanStatus.style.color = '#aeb8aa';
+        toast('Sunucudan ayrıldınız');
+        mpModal.style.display = 'none';
+        lanBackdrop.style.display = 'none';
+      });
+
+      // ESC tuşu ile menüyü kapat
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          mpModal.style.display = 'none';
+          lanBackdrop.style.display = 'none';
+        }
+      });
+
+      requestAnimationFrame(newLoop);
+    })();
+  </script>
+</body>
+</html>
